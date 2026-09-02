@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+ 
+<html lang="en" dir="ltl">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title> Memory Game (4*4) - First Round</title>
+  <link rel="stylesheet" href="styles_c_wr_1.css" />
+</head>
+<body>
+  <main class="card-shell" aria-live="polite">
+    <div class="row">
+      <div class="pill" id="status">Not started</div>
+      <div class="pill" id="uid-pill"> Three-digit ID: — </div>
+      <div class="pill" id="moves">Move: 0</div>
+    </div>
+
+    <h1>Memory Game (4*4) - First Round (one Round)</h1>
+    <p class="desc">
+	To start the game, first enter your three-digit ID.
+    </p>
+
+    <div class="progress" aria-hidden="true">
+      <div class="bar" id="bar"></div>
+    </div>
+
+    <!-- START -->
+    <section class="start" id="start" aria-label="Start section">
+      <div class="field">
+        <input id="studentId" type="text" placeholder="Three-digit ID (e.g., 123)" autocomplete="off" />
+        <button class="primary" id="begin" type="button">Start</button>
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <section id="board-wrap" style="display:none" aria-label="Game board">
+      <div id="game-board"></div> <!-- Cards are injected dynamically by script_c_wr_1.js -->
+	<div class="btns" style="margin-top:10px">
+	<!--   <button class="primary" id="downloadBtn" type="button">Download Log</button> GAME -->
+	</div>
+
+    </section> 
+
+    <!-- END -->
+    <section class="end" id="end" style="display:none" aria-label="Game complete">
+      <h2>Great job! 🎉 Remember the code 1289 to continue. Close this window and proceed.</h2>
+      <p class="muted" id="summary"></p>
+      <div class="btns" style="justify-content:center">
+      <!--  <button class="primary" id="playAgain" type="button">شروع بازی سوم</button> -->
+      </div>
+    </section>
+  </main>
+
+  <script src="script_c_wr_1.js"></script>
+</body>
+</html>
