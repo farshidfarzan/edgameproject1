@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>8-Question Food MCQ Quiz (Offline Logger)</title>
+  <style>
+    :root{
+      --bg:#0f172a;           /* slate-900 */
+      --card:#111827;        /* gray-900 */
+      --text:#e5e7eb;        /* gray-200 */
+      --muted:#9ca3af;       /* gray-400 */
+      --brand:#3b82f6;       /* blue-500 */
+      --brand-2:#2563eb;     /* blue-600 */
+      --ok:#22c55e;          /* green-500 */
+      --bad:#ef4444;         /* red-500 */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 1200px at 90% -10%, #1e293b  10%, var(--bg) 60%);
+      color:var(--text); display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .card{
+      width:min(800px, 100%); background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.06); border-radius:24px; box-shadow:var(--shadow); padding:24px 24px 28px;
+    }
+    .row{display:flex; gap:16px; align-items:center; justify-content:space-between; margin-bottom:8px}
+    .pill{font-size:12px; color:var(--muted); border:1px solid rgba(255,255,255,.12); padding:6px 10px; border-radius:999px}
+    h1{font-size:20px; margin:8px 0 2px}
+    p.desc{margin:0; color:var(--muted); font-size:13px}
+    .progress{height:8px; background:#0b1220; border-radius:999px; overflow:hidden; margin:16px 0 0}
+    .bar{height:100%; background:linear-gradient(90deg, var(--brand), var(--brand-2)); width:0%}
+
+    .qwrap{margin-top:18px}
+    .qtext{font-size:22px; line-height:1.3; direction: ltr; text-align: left;}
+    .options{list-style:none; padding:0; margin:16px 0; display:grid; gap:10px; direction: ltr; text-align: left;}
+
+    .opt{border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.02); padding:14px 14px; border-radius:14px; cursor:pointer; display:flex; gap:10px; align-items:flex-start}
+    .opt:hover{border-color:rgba(255,255,255,.22)}
+    .opt input{accent-color:var(--brand); margin-top:2px}
+    .opt span{display:block}
+
+    .btns{display:flex; gap:10px; justify-content:flex-end; align-items:center}
+    button{border:0; border-radius:12px; padding:12px 16px; font-weight:600; cursor:pointer}
+    .primary{background:linear-gradient(180deg, var(--brand), var(--brand-2)); color:white}
+    .secondary{background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,.15)}
+    .tag{font-size:14px; padding:8px 12px; border-radius:999px;}
+    .ok{background:rgba(34,197,94,.12); color:#bbf7d0; border:1px solid rgba(34,197,94,.35)}
+    .bad{background:rgba(239,68,68,.12); color:#fecaca; border:1px solid rgba(239,68,68,.35)}
+
+    /* Modal */
+    .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); padding:20px}
+    .modal[open]{display:flex}
+    .dialog{background:var(--card); border:1px solid rgba(255,255,255,.12); border-radius:18px; box-shadow:var(--shadow); max-width:560px; width:100%; padding:22px}
+    .dialog h2{margin:0 0 8px; font-size:20px}
+    .dialog p{margin:6px 0 0; color:var(--muted)}
+
+    /* Start screen */
+    .start{display:block}
+    .start .field{display:flex; gap:10px; margin-top:14px}
+    .start input{flex:1; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.03); color:var(--text)}
+
+    /* End screen */
+    .end{display:none; text-align:center; padding:30px 10px}
+    .end h2{font-size:28px; margin:0 0 6px}
+    .end p{color:var(--muted); margin:0 0 16px}
+	
+	#final {direction: ltr; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="card" aria-live="polite">
+    <div class="row">
+      <div class="pill" id="counter">Not started</div>
+      <div class="pill" id="score">Score: 0</div>
+    </div>
+    <h1 dir="ltr">Initial General Knowledge Assessment</h1>
+    <!-- <p class="desc" dir="rtl">کد شناسایی اختصاص یافته را وارد کن</p> -->
+
+    <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+
+    <!-- START SCREEN -->
+    <section class="start" id="start">
+      <div class="field" aria-label="Student ID field">
+        <input id="studentId" type="text" placeholder="Assigned three-digit ID (e.g., 123)" autocomplete="off"   style="direction: ltr; text-align: left;"  />
+        <button class="primary" id="begin" type="button">Start</button>
+      </div>
+      <p class="desc" style="margin-top:10px; direction:ltr; text-align:left;">Note: Your ID is a three-digit code. Please enter it in the box above.</p>
+    </section>
+
+    <!-- QUIZ SCREEN -->
+    <section class="qwrap" id="quiz" role="group" aria-labelledby="qtext" style="display:none">
+      <div class="qtext" id="qtext">Loading…</div>
+      <ul class="options" id="options"></ul>
+      <div class="btns">
+        <span id="feedback" class="tag" style="display:none"></span>
+        <button class="secondary" id="skip" type="button" title="Skip this question">I don’t know</button>
+        <button class="primary" id="submit" type="button">Submit</button>
+      </div>
+    </section>
+
+    <!-- END SCREEN -->
+    <section class="end" id="end">
+      <h2>🎉 Great job!</h2>
+	  <h2>Remember the code 1289 to enter in the next step.</h2>
+	  <p style="font-weight: normal; font-size: 16px; margin: 0; direction: ltr; text-align: center;">Close this window and continue.</p>
+      <p id="final"></p>
+      <!--<div class="btns" style="justify-content:center">
+        <button class="primary" id="restart" type="button">Restart</button>
+      </div>-->
+    </section>
+  </main>
+
+  <!-- Modal for incorrect answers -->
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle" aria-describedby="mdesc">
+    <div class="dialog">
+      <h2 id="mtitle">Not quite.</h2>
+      <p id="mdesc"style="direction:ltr; text-align:left;"> Your answer to this question was incorrect, but that's okay. Keep going!</p>
+      <div class="btns" style="margin-top:14px; display:flex; justify-content:flex-start">
+        <button class="primary" id="closeModal" type="button">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === 1) Define your 8 questions here ===
+    // Each question: { q: string, options: [string], answer: indexNumber, explain: string }
+	
+
+const QUESTIONS = [
+  {
+    "q": "Which food is associated with Brazil?",
+    "options": [
+      "Barreado",
+      "Locro",
+      "Dhokla",
+      "Migas"
+    ],
+    "answer": 0,
+    "explain": "Correct answer: Barreado"
+  },
+  {
+    "q": "Which food is associated with Argentina?",
+    "options": [
+      "Hōtō",
+      "Locro",
+      "Cjarsons",
+      "Maultaschen"
+    ],
+    "answer": 1,
+    "explain": "Correct answer: Locro"
+  },
+  {
+    "q": "Which food is associated with Japan?",
+    "options": [
+      "Dhokla",
+      "Migas",
+      "Hōtō",
+      "Lamington"
+    ],
+    "answer": 2,
+    "explain": "Correct answer: Hōtō"
+  },
+  {
+    "q": "Which food is associated with India?",
+    "options": [
+      "Cjarsons",
+      "Maultaschen",
+      "Barreado",
+      "Dhokla"
+    ],
+    "answer": 3,
+    "explain": "Correct answer: Dhokla"
+  },
+  {
+    "q": "Which food is associated with Italy?",
+    "options": [
+      "Cjarsons",
+      "Migas",
+      "Lamington",
+      "Locro"
+    ],
+    "answer": 0,
+    "explain": "Correct answer: Cjarsons"
+  },
+  {
+    "q": "Which food is associated with Spain?",
+    "options": [
+      "Maultaschen",
+      "Migas",
+      "Barreado",
+      "Hōtō"
+    ],
+    "answer": 1,
+    "explain": "Correct answer: Migas"
+  },
+  {
+    "q": "Which food is associated with Germany?",
+    "options": [
+      "Lamington",
+      "Locro",
+      "Maultaschen",
+      "Dhokla"
+    ],
+    "answer": 2,
+    "explain": "Correct answer: Maultaschen"
+  },
+  {
+    "q": "Which food is associated with Australia?",
+    "options": [
+      "Barreado",
+      "Hōtō",
+      "Cjarsons",
+      "Lamington"
+    ],
+    "answer": 3,
+    "explain": "Correct answer: Lamington"
+  }
+];
+
+    // === 2) Elements ===
+    const counter = document.getElementById('counter');
+    const scoreEl = document.getElementById('score');
+    const bar = document.getElementById('bar');
+    const qtext = document.getElementById('qtext');
+    const optionsList = document.getElementById('options');
+    const feedback = document.getElementById('feedback');
+    const submitBtn = document.getElementById('submit');
+    const skipBtn = document.getElementById('skip');
+    const end = document.getElementById('end');
+    const quiz = document.getElementById('quiz');
+    const final = document.getElementById('final');
+    const start = document.getElementById('start');
+    const studentIdInput = document.getElementById('studentId');
+    const beginBtn = document.getElementById('begin');
+
+    const modal = document.getElementById('modal');
+    const mtitle = document.getElementById('mtitle');
+    const mdesc = document.getElementById('mdesc');
+    const closeModal = document.getElementById('closeModal');
+
+    // === 3) State ===
+    let idx = 0;           // current question index
+    let score = 0;         // number correct
+    let studentId = '';
+    let answering = false;
+    let LOGS = [];         // log rows for CSV
+
+    // === 4) Utility: CSV download ===
+    function downloadCSV(rows, filename){
+      const headers = ['student_id','question_index','question_text','selected_option','selected_text','correct','timestamp_iso'];
+      const esc = (v) => {
+        const s = String(v==null?'':v).replaceAll('"','""');
+        return '"'+s+'"';
+      };
+      const lines = [headers.join(',')].concat(rows.map(r => headers.map(h => esc(r[h])).join(',')));
+      const blob = new Blob(["\uFEFF" + lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function nowISO(){ return new Date().toISOString(); }
+
+    // Memphis local time for the output filename (CST/CDT automatically).
+    function memphisFilenameTime(date = new Date()) {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hourCycle: 'h23'
+      }).formatToParts(date);
+      const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+      return `${values.year}-${values.month}-${values.day}-${values.hour}-${values.minute}-${values.second}`;
+    }
+
+    // === 5) Render & interactions ===
+    function render(){
+      const total = QUESTIONS.length;
+      scoreEl.textContent = `Score: ${score}`;
+      if(idx >= total){
+        end.style.display = 'block';
+        quiz.style.display = 'none';
+		final.textContent = `You answered ${score} of ${total} questions correctly.`;
+        counter.textContent = `Finished`;
+        bar.style.width = '100%';
+        // Auto-download CSV upon completion
+        const fname = `Pretest_Food_${studentId || 'anon'}_${memphisFilenameTime()}.csv`;
+        downloadCSV(LOGS, fname);
+        return;
+      }
+
+      answering = false;
+      submitBtn.disabled = false;
+      skipBtn.disabled = false;
+      const q = QUESTIONS[idx];
+      counter.textContent = `Question ${idx+1} / ${total}`;
+      scoreEl.textContent = `Score: ${score}`;
+      bar.style.width = `${(idx/total)*100}%`;
+
+      qtext.textContent = q.q;
+      optionsList.innerHTML = '';
+
+      q.options.forEach((text, i) => {
+        const id = `opt-${idx}-${i}`;
+        const li = document.createElement('li');
+        li.className = 'opt';
+        li.innerHTML = `
+          <input type="radio" name="opt" id="${id}" value="${i}" aria-labelledby="${id}-label" />
+          <label for="${id}"><span id="${id}-label">${String.fromCharCode(65 + i)}. ${text}</span></label>
+        `;
+        optionsList.appendChild(li);
+      });
+      feedback.style.display = 'none';
+      feedback.className = 'tag';
+      feedback.textContent = '';
+    }
+
+    function selected(){
+      const el = optionsList.querySelector('input[name="opt"]:checked');
+      return el ? Number(el.value) : null;
+    }
+
+	function showIncorrect(correctIndex){
+	  const q = QUESTIONS[idx];
+	  mtitle.textContent = 'Incorrect answer';
+	  mtitle.style.direction = "ltr";
+	  mtitle.style.textAlign = "left";
+
+	  // (اختیاری) اگر می‌خواهی پاسخ درست را هم نشان بدهی:
+	  // mdesc.innerHTML = `گزینه‌ی صحیح: <strong>${q.options[correctIndex]}</strong>`;
+
+	  // قفل کردن ورودی‌ها تا نتواند دوباره پاسخ دهد
+	  optionsList.querySelectorAll('input').forEach(inp => inp.disabled = true);
+	  submitBtn.disabled = true;
+	  skipBtn.disabled = true;
+
+	  modal.setAttribute('open','');
+	  setTimeout(() => closeModal.focus(), 50);
+	}
+
+
+	function closeModalFn(){
+	  modal.removeAttribute('open');
+	  idx++;
+	  submitBtn.disabled = false;
+	  skipBtn.disabled = false;
+	  render();
+	}
+
+
+	// Start button with 3-digit validation
+	beginBtn.addEventListener('click', () => {
+	  const id = studentIdInput.value.trim();
+	  const isValid = /^\d{3}$/.test(id);   // exactly 3 digits
+
+	  if (!isValid) {
+		// Visual nudge + helpful message
+		studentIdInput.focus();
+		studentIdInput.value = '';
+		studentIdInput.placeholder = 'Error: Please enter exactly three digits (e.g., 123).';
+		studentIdInput.style.borderColor = 'var(--bad)';
+		// reset border after a moment
+		setTimeout(() => studentIdInput.style.borderColor = 'rgba(255,255,255,.15)', 1200);
+		return;
+	  }
+
+	  studentId = id;
+	  start.style.display = 'none';
+	  quiz.style.display = 'block';
+	  counter.textContent = 'Question / ' + QUESTIONS.length;
+	  render();
+	});
+
+	
+	
+	
+
+
+    // Submit logic with logging
+    submitBtn.addEventListener('click', () => {
+      if (answering || idx >= QUESTIONS.length) return;
+      const pick = selected();
+      if(pick === null){
+        feedback.textContent = 'Please select an answer.';
+        feedback.className = 'tag bad';
+        feedback.style.display = 'inline-block';
+        return;
+      }
+      const q = QUESTIONS[idx];
+      const correct = (pick === q.answer);
+      answering = true;
+      submitBtn.disabled = true;
+      skipBtn.disabled = true;
+      optionsList.querySelectorAll('input').forEach(inp => inp.disabled = true);
+
+      // Log this attempt
+      LOGS.push({
+        student_id: studentId,
+        question_index: idx+1,
+        question_text: q.q,
+        selected_option: pick,
+        selected_text: q.options[pick],
+        correct: correct ? 'TRUE' : 'FALSE',
+        timestamp_iso: nowISO()
+      });
+
+      if(correct){
+        score++;
+        feedback.textContent = 'Correct!';
+        feedback.className = 'tag ok';
+        feedback.style.display = 'inline-block';
+        // short delay then go to next
+        setTimeout(() => { idx++; render(); }, 650);
+      } else {
+        feedback.textContent = 'Incorrect!';
+        feedback.className = 'tag bad';
+        feedback.style.display = 'inline-block';
+        showIncorrect(q.answer);
+      }
+    });
+
+    // Record explicit "I don’t know" responses before advancing.
+    skipBtn.addEventListener('click', () => {
+      if (answering || idx >= QUESTIONS.length) return;
+      LOGS.push({
+        student_id: studentId,
+        question_index: idx + 1,
+        question_text: QUESTIONS[idx].q,
+        selected_option: '',
+        selected_text: 'I don’t know',
+        correct: 'FALSE',
+        timestamp_iso: nowISO()
+      });
+      idx++;
+      render();
+    });
+    closeModal.addEventListener('click', closeModalFn);
+
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && modal.hasAttribute('open')) closeModalFn();
+    });
+
+    document.getElementById('restart')?.addEventListener('click', () => {
+      idx = 0; score = 0; LOGS = []; start.style.display = 'block'; quiz.style.display = 'none'; end.style.display = 'none'; counter.textContent = 'Not started'; bar.style.width='0%';
+    });
+  </script>
+</body>
+</html>
