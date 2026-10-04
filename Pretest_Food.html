@@ -245,6 +245,13 @@ const QUESTIONS = [
     let idx = 0;           // current question index
     let score = 0;         // number correct
     let studentId = '';
+	
+	const responseId =
+	new URLSearchParams(window.location.search).get('responseId') || '';
+
+	const filenameResponseId =
+	responseId.replace(/[^a-zA-Z0-9_-]/g, '');
+	
     let answering = false;
     let LOGS = [];         // log rows for CSV
 
@@ -288,7 +295,7 @@ const QUESTIONS = [
         counter.textContent = `Finished`;
         bar.style.width = '100%';
         // Auto-download CSV upon completion
-        const fname = `Pretest_Food_${studentId || 'anon'}_${memphisFilenameTime()}.csv`;
+        const fname = `Pretest_Food_${studentId || 'anon'}_${filenameResponseId || 'noResponseID'}_${memphisFilenameTime()}.csv`;
         downloadCSV(LOGS, fname);
         return;
       }
