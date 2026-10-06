@@ -1,273 +1,402 @@
-// ======= 4×4 Memory Game with CSV Output (Offline) =======
+// ======= 4×4 Food–Country Memory Game with CSV Output =======
 window.addEventListener('DOMContentLoaded', () => {
-  // ---- Game limit: maximum 2 rounds ----
-  let playCount = 0;
+  // ---------- Settings ----------
   const maxPlays = 2;
+  const completionCode = '1289';
 
-  // ---- Game state ----
+  // Read the participant's Qualtrics Response ID from the URL.
+  const responseId =
+    new URLSearchParams(window.location.search).get('responseId') || '';
+
+  // ---------- Game state ----------
+  let playCount = 0;
   let studentId = '';
-  let cards = [];
   let flippedCards = [];
-  let matchedPairs = 0;   // Target = 8 pairs
+  let matchedPairs = 0;
   let moves = 0;
-  let LOGS = [];          // CSV Rows
+  let LOGS = [];
+  let gameActive = false;
+  let resolving = false;
 
-  // ---- DOM elements ----
-  const statusEl     = document.getElementById('status');
-  const uidPill      = document.getElementById('uid-pill');
-  const movesEl      = document.getElementById('moves');
-  const bar          = document.getElementById('bar');
-  const start        = document.getElementById('start');
-  const boardWrap    = document.getElementById('board-wrap');
-  const beginBtn     = document.getElementById('begin');
-  const idInput      = document.getElementById('studentId');
-  const summary      = document.getElementById('summary');
-  const end          = document.getElementById('end');
+  // ---------- DOM elements ----------
+  const statusEl = document.getElementById('status');
+  const uidPill = document.getElementById('uid-pill');
+  const movesEl = document.getElementById('moves');
+  const bar = document.getElementById('bar');
+  const start = document.getElementById('start');
+  const boardWrap = document.getElementById('board-wrap');
+  const board = document.getElementById('game-board');
+  const beginBtn = document.getElementById('begin');
+  const idInput = document.getElementById('studentId');
+  const summary = document.getElementById('summary');
+  const end = document.getElementById('end');
   const playAgainBtn = document.getElementById('playAgain');
-  const downloadBtn  = document.getElementById('downloadBtn');
-  const roundPill    = document.getElementById('round-pill'); // Optional
+  const downloadBtn = document.getElementById('downloadBtn');
+  const roundPill = document.getElementById('round-pill');
 
-  // Some buttons/elements may not be present in the HTML; handle safely:
-  if (downloadBtn) downloadBtn.disabled = true;
-
-  // ---------- Define pairs ----------
+  // ---------- Eight food–country pairs ----------
   const PAIRS = [
-    { base: "img1.png",  alts: ["img9.png"] },
-    { base: "img2.png",  alts: ["img10.png"] },
-    { base: "img3.png",  alts: ["img11.png"] },
-    { base: "img4.png",  alts: ["img12.png"] },
-    { base: "img5.png",  alts: ["img13.png"] },
-    { base: "img6.png", alts: ["img14.png"] },
-    { base: "img7.png", alts: ["img15.png"] },
-    { base: "img8.png", alts: ["img16.png"] }
+    { food: 'img1.png', country: 'img9.png' },
+    { food: 'img2.png', country: 'img10.png' },
+    { food: 'img3.png', country: 'img11.png' },
+    { food: 'img4.png', country: 'img12.png' },
+    { food: 'img5.png', country: 'img13.png' },
+    { food: 'img6.png', country: 'img14.png' },
+    { food: 'img7.png', country: 'img15.png' },
+    { food: 'img8.png', country: 'img16.png' }
   ];
 
-  // ---------- Helper functions ----------
+  // ---------- Helpers ----------
   const nowISO = () => new Date().toISOString();
 
-  function shuffle(array){
-    for (let i = array.length - 1; i > 0; i--){
+  function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
     return array;
   }
-  const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  // ---------- Status / CSV ----------
-  function resetState(){
+  function safeFilenamePart(value) {
+    return String(value).replace(/[^a-zA-Z0-9_-]/g, '');
+  }
+
+  function memphisFilenameTime(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(date);
+
+    const values = {};
+    parts.forEach(part => {
+      if (part.type !== 'literal') {
+        values[part.type] = part.value;
+      }
+    });
+
+    return [
+      values.year,
+      values.month,
+      values.day,
+      values.hour,
+      values.minute,
+      values.second
+    ].join('-');
+  }
+
+  // ---------- Reset current round ----------
+  function resetState() {
     flippedCards = [];
     matchedPairs = 0;
     moves = 0;
     LOGS = [];
+    resolving = false;
+    gameActive = false;
 
-    if (statusEl) statusEl.textContent = 'Find all matching pairs';
-    if (movesEl)  movesEl.textContent  = 'Moves: 0';
-    if (bar)      bar.style.width      = '0%';
-    if (downloadBtn) downloadBtn.disabled = true; // Keep locked until the end of the game
+    if (statusEl) statusEl.textContent = 'Find all eight food–country pairs.';
+    if (movesEl) movesEl.textContent = 'Moves: 0';
+    if (bar) bar.style.width = '0%';
+    if (downloadBtn) downloadBtn.disabled = true;
   }
 
-  function downloadCSV(){
-    if (!LOGS.length){
+  // ---------- CSV download ----------
+  function downloadCSV() {
+    if (!LOGS.length) {
       alert('No activity has been recorded for download yet.');
       return;
     }
-    const headers = ['student_id','move_index','card1_id','card1_value','card2_id','card2_value','match','timestamp_iso'];
-    const esc = (v) => '"' + String(v == null ? '' : v).replaceAll('"','""') + '"';
-    const lines = [headers.join(',')].concat(
-      LOGS.map(r => headers.map(h => esc(r[h])).join(','))
+
+    const headers = [
+      'student_id',
+      'response_id',
+      'round',
+      'move_index',
+      'card1_id',
+      'card1_value',
+      'card2_id',
+      'card2_value',
+      'match',
+      'timestamp_iso'
+    ];
+
+    const escapeCSV = value =>
+      '"' + String(value == null ? '' : value).replaceAll('"', '""') + '"';
+
+    const lines = [
+      headers.join(','),
+      ...LOGS.map(row =>
+        headers.map(header => escapeCSV(row[header])).join(',')
+      )
+    ];
+
+    const blob = new Blob(
+      ['\uFEFF' + lines.join('\n')],
+      { type: 'text/csv;charset=utf-8;' }
     );
-    const blob = new Blob(["\uFEFF" + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `memory_log_c_wr_1_${studentId || 'unknown'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    const link = document.createElement('a');
+
+    const filenameStudentId = safeFilenamePart(studentId) || 'unknown';
+    const filenameResponseId =
+      safeFilenamePart(responseId) || 'noResponseID';
+
+    // The logs retain their round number for later manual downloads.
+    const roundNumber = LOGS[0].round;
+
+    link.href = url;
+    link.download =
+      `memory_log_int_wr_${filenameStudentId}_` +
+      `${filenameResponseId}_round${roundNumber}_` +
+      `${memphisFilenameTime()}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  // ---------- Game logic ----------
-  function handleResolve(){
-    const [c1, c2] = flippedCards;
-    const v1 = c1.getAttribute('data-match');
-    const v2 = c2.getAttribute('data-match');
-    const isMatch = v1 === v2;
+  // ---------- Resolve two revealed cards ----------
+  function handleResolve() {
+    if (!gameActive || flippedCards.length !== 2) return;
+
+    const [card1, card2] = flippedCards;
+
+    const isMatch =
+      card1.getAttribute('data-match') ===
+      card2.getAttribute('data-match');
 
     moves++;
+
     if (movesEl) movesEl.textContent = `Moves: ${moves}`;
 
-    // Record each revealed pair
     LOGS.push({
       student_id: studentId,
+      response_id: responseId,
+      round: playCount + 1,
       move_index: moves,
-      card1_id: c1.id,
-      card1_value: c1.getAttribute('data-image'),
-      card2_id: c2.id,
-      card2_value: c2.getAttribute('data-image'),
+      card1_id: card1.id,
+      card1_value: card1.getAttribute('data-image'),
+      card2_id: card2.id,
+      card2_value: card2.getAttribute('data-image'),
       match: isMatch ? 'TRUE' : 'FALSE',
       timestamp_iso: nowISO()
     });
 
-    if (isMatch){
-      c1.classList.add('matched'); c2.classList.add('matched');
+    if (isMatch) {
+      card1.classList.add('matched');
+      card2.classList.add('matched');
+
       matchedPairs++;
-      if (bar) bar.style.width = (matchedPairs / 8) * 100 + '%'; // 8 pairs total
+
+      if (bar) {
+        bar.style.width = `${(matchedPairs / PAIRS.length) * 100}%`;
+      }
+
       flippedCards = [];
-      if (matchedPairs === 8){ finishGame(); }
+      resolving = false;
+
+      if (matchedPairs === PAIRS.length) {
+        finishGame();
+      }
     } else {
       setTimeout(() => {
-        [c1,c2].forEach(card => {
+        [card1, card2].forEach(card => {
           card.classList.remove('flipped');
           card.style.backgroundImage = "url('images/back.png')";
         });
+
         flippedCards = [];
+        resolving = false;
       }, 800);
     }
   }
 
-  function onCardClick(card){
-    if (!boardWrap || boardWrap.style.display === 'none') return; // Not started yet
+  // ---------- Card clicks ----------
+  function onCardClick(card) {
+    if (!gameActive || resolving) return;
     if (card.classList.contains('matched')) return;
     if (card.classList.contains('flipped')) return;
-    if (flippedCards.length === 2) return;
 
     card.classList.add('flipped');
-    const img = card.getAttribute('data-image');
-    card.style.backgroundImage = `url('images/${img}')`;
+
+    const image = card.getAttribute('data-image');
+    card.style.backgroundImage = `url('images/${image}')`;
+
     flippedCards.push(card);
 
-    if (flippedCards.length === 2){
+    if (flippedCards.length === 2) {
+      resolving = true;
       setTimeout(handleResolve, 550);
     }
   }
 
-  // Create the card board: for each pair, use base + one of the alts, then shuffle randomly
-  function setupBoard(){
-    const board = document.getElementById('game-board');
-    if (!board) return;
-
+  // ---------- Create 16 shuffled cards ----------
+  function setupBoard() {
     const configs = [];
-    PAIRS.forEach((pair, idx) => {
-      const partner = pickOne(pair.alts);
-      configs.push({ img: pair.base, match: idx });
-      configs.push({ img: partner,   match: idx });
+
+    PAIRS.forEach((pair, index) => {
+      configs.push({ image: pair.food, match: index });
+      configs.push({ image: pair.country, match: index });
     });
 
     shuffle(configs);
-
     board.innerHTML = '';
-    configs.forEach((cfg, i) => {
+
+    configs.forEach((config, index) => {
       const card = document.createElement('div');
+
       card.className = 'card';
-      card.id = `card${i+1}`;
-      card.setAttribute('data-image', cfg.img);
-      card.setAttribute('data-match', String(cfg.match));
+      card.id = `card${index + 1}`;
+      card.setAttribute('data-image', config.image);
+      card.setAttribute('data-match', String(config.match));
       card.style.backgroundImage = "url('images/back.png')";
+
       card.addEventListener('click', () => onCardClick(card));
       board.appendChild(card);
     });
-
-    cards = Array.from(board.querySelectorAll('.card'));
   }
 
-  function finishGame(){
-    if (statusEl) statusEl.textContent = 'Finished';
-    if (boardWrap) boardWrap.style.display = 'none';
-    if (end) end.style.display = 'block';
-    if (summary) summary.textContent = `You completed the game in ${moves} moves.`;
+  // ---------- Start a round ----------
+  function startRound() {
+    if (playCount >= maxPlays) return;
 
-    // Automatically download the CSV after each round is completed
-    downloadCSV();
+    if (!board || !boardWrap) {
+      alert('The game board was not found. Please check the HTML file.');
+      return;
+    }
 
-    // Enable the download button for manual download
-    if (downloadBtn) downloadBtn.disabled = false;
+    resetState();
+    setupBoard();
 
+    if (start) start.style.display = 'none';
+    if (end) end.style.display = 'none';
+
+    boardWrap.style.display = 'block';
+
+    if (roundPill) {
+      roundPill.textContent = `Round: ${playCount + 1} of ${maxPlays}`;
+    }
+
+    if (playAgainBtn) playAgainBtn.disabled = true;
+
+    gameActive = true;
+  }
+
+  // ---------- Finish a round ----------
+  function finishGame() {
+    gameActive = false;
+    resolving = false;
+
+    const completedRound = playCount + 1;
     playCount++;
 
-    // End of the first round: only show the "Start Second Round" button
-    if (playCount === 1) {
-      if (playAgainBtn){
+    if (boardWrap) boardWrap.style.display = 'none';
+    if (end) end.style.display = 'block';
+
+    if (downloadBtn) downloadBtn.disabled = false;
+
+    if (playCount < maxPlays) {
+      if (summary) {
+        summary.textContent =
+          `You completed round ${completedRound} in ${moves} moves. ` +
+          'Please start the second round to complete this stage.';
+      }
+
+      if (statusEl) statusEl.textContent = 'Round one completed.';
+
+      if (roundPill) {
+        roundPill.textContent = `Round: ${completedRound} completed`;
+      }
+
+      if (playAgainBtn) {
+        playAgainBtn.style.display = 'inline-block';
         playAgainBtn.disabled = false;
         playAgainBtn.textContent = 'Start Second Round';
       }
-      if (roundPill) roundPill.textContent = 'Round: Final';
-      if (statusEl) statusEl.textContent = 'This stage has been completed successfully. Remember the code 1289 and close this window.';
+    } else {
+      const completionMessage =
+        `You completed the final round in ${moves} moves. ` +
+        `This stage is complete. Your completion code is ${completionCode}. ` +
+        'Return to the Qualtrics survey and enter this code to continue.';
+
+      // Put the code in the end-screen summary as well as the status.
+      if (summary) summary.textContent = completionMessage;
+
+      if (statusEl) {
+        statusEl.textContent =
+          `Stage completed. Completion code: ${completionCode}`;
+      }
+
+      if (roundPill) roundPill.textContent = 'Round: Game Over';
+
+      if (playAgainBtn) {
+        playAgainBtn.disabled = true;
+        playAgainBtn.style.display = 'none';
+      }
+
+      if (beginBtn) beginBtn.disabled = true;
     }
 
-    // End of the second round: fully lock the game
-    if (playCount >= maxPlays) {
-      if (playAgainBtn) playAgainBtn.disabled = true;
-      if (beginBtn)     beginBtn.disabled = true;
-      if (roundPill)    roundPill.textContent = 'Round: Game Over';
-      if (statusEl)     statusEl.textContent = 'The game is over — you have played twice.';
-    }
+    // Save a separate CSV for each completed round.
+    downloadCSV();
   }
 
-  // ---------- User interface ----------
-  if (beginBtn){
+  // ---------- Begin button ----------
+  if (beginBtn) {
     beginBtn.addEventListener('click', () => {
-      if (playCount >= maxPlays) {
-        alert('You have already played twice. No additional rounds are allowed.');
-        return;
-      }
-      if (!idInput){
+      if (gameActive || playCount > 0) return;
+
+      if (!idInput) {
         alert('Student ID was not found.');
         return;
       }
 
       const id = idInput.value.trim();
-      if (!id){
+
+      if (!id) {
         idInput.focus();
         idInput.placeholder = 'Student ID is required';
         return;
       }
 
       studentId = id;
+
       if (uidPill) uidPill.textContent = `ID: ${studentId}`;
 
-      // Current round indicator
-      const currentRound = playCount + 1;
-      if (roundPill) {
-        roundPill.textContent = currentRound === 1 ? 'Round: First' : 'Round: Final';
-      }
-
-      // Enter the game
-      if (start)    start.style.display = 'none';
-      if (end)      end.style.display   = 'none';
-      if (boardWrap) boardWrap.style.display = 'block';
-      if (statusEl) statusEl.textContent = 'Find all matching pairs';
-
-      resetState();
-      setupBoard();
+      startRound();
     });
   }
 
-  // After the first round, this button is the only way to start the second round
-  if (playAgainBtn){
+  // ---------- Second-round button ----------
+  if (playAgainBtn) {
     playAgainBtn.addEventListener('click', () => {
-      if (playCount >= maxPlays) return;
-
-      if (end)      end.style.display   = 'none';
-      if (boardWrap) boardWrap.style.display = 'block';
-      if (statusEl) statusEl.textContent = 'Find all matching pairs';
-      if (roundPill) roundPill.textContent = 'Round: Final';
-
-      resetState();
-      setupBoard();
+      if (gameActive || playCount !== 1) return;
+      startRound();
     });
   }
 
-  // Manual download (protected)
-  if (downloadBtn){
+  // ---------- Manual download ----------
+  if (downloadBtn) {
     downloadBtn.addEventListener('click', () => {
-      if (matchedPairs < 8) {
-        alert('To download, first complete all 8 pairs.');
+      if (matchedPairs < PAIRS.length) {
+        alert('Complete all eight pairs before downloading.');
         return;
       }
+
       downloadCSV();
     });
   }
 
   // ---------- Initial setup ----------
-  resetState(); // The card board is created when the "Start" button is pressed
+  resetState();
+  if (end) end.style.display = 'none';
+  if (boardWrap) boardWrap.style.display = 'none';
 });
