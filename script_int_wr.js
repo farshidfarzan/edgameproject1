@@ -32,14 +32,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ---------- Define pairs ----------
   const PAIRS = [
-    { base: "img1.png",  alts: ["img9.png",  "img22.png"] },
-    { base: "img2.png",  alts: ["img10.png",  "img44.png"] },
-    { base: "img3.png",  alts: ["img11.png",  "img66.png"] },
-    { base: "img4.png",  alts: ["img12.png",  "img88.png"] },
-    { base: "img5.png",  alts: ["img13.png", "img1010.png"] },
-    { base: "img6.png", alts: ["img14.png", "img1212.png"] },
-    { base: "img7.png", alts: ["img15.png", "img1414.png"] },
-    { base: "img8.png", alts: ["img16.png", "img1616.png"] }
+    { base: "img1.png",  alts: ["img9.png"] },
+    { base: "img2.png",  alts: ["img10.png"] },
+    { base: "img3.png",  alts: ["img11.png"] },
+    { base: "img4.png",  alts: ["img12.png"] },
+    { base: "img5.png",  alts: ["img13.png"] },
+    { base: "img6.png", alts: ["img14.png"] },
+    { base: "img7.png", alts: ["img15.png"] },
+    { base: "img8.png", alts: ["img16.png"] }
   ];
 
   // ---------- Helper functions ----------
