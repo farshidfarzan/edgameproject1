@@ -96,7 +96,6 @@
       <ul class="options" id="options"></ul>
       <div class="btns">
         <span id="feedback" class="tag" style="display:none"></span>
-        <button class="secondary" id="skip" type="button" title="Skip this question">I don’t know</button>
         <button class="primary" id="submit" type="button">Submit</button>
       </div>
     </section>
@@ -133,89 +132,97 @@ const QUESTIONS = [
   {
     "q": "Which food is associated with Brazil?",
     "options": [
+      "I don’t know the answer",
       "Dhokla",
       "Locro",
       "Migas",
       "Barreado"
     ],
-    "answer": 3,
+    "answer": 4,
     "explain": "Correct answer: Barreado"
   },
   {
     "q": "Which food is associated with Argentina?",
     "options": [
+      "I don’t know the answer",
       "Locro",
       "Cjarsons",
       "Maultaschen",
       "Hōtō"
     ],
-    "answer": 0,
+    "answer": 1,
     "explain": "Correct answer: Locro"
   },
   {
     "q": "Which food is associated with Japan?",
     "options": [
+      "I don’t know the answer",
       "Lamington",
       "Migas",
       "Hōtō",
       "Dhokla"
     ],
-    "answer": 2,
+    "answer": 3,
     "explain": "Correct answer: Hōtō"
   },
   {
     "q": "Which food is associated with India?",
     "options": [
+      "I don’t know the answer",
       "Maultaschen",
       "Dhokla",
       "Cjarsons",
       "Barreado"
     ],
-    "answer": 1,
+    "answer": 2,
     "explain": "Correct answer: Dhokla"
   },
   {
     "q": "Which food is associated with Italy?",
     "options": [
+      "I don’t know the answer",
       "Migas",
       "Lamington",
       "Cjarsons",
       "Locro"
     ],
-    "answer": 2,
+    "answer": 3,
     "explain": "Correct answer: Cjarsons"
   },
   {
     "q": "Which food is associated with Spain?",
     "options": [
+      "I don’t know the answer",
       "Barreado",
       "Migas",
       "Hōtō",
       "Maultaschen"
     ],
-    "answer": 1,
+    "answer": 2,
     "explain": "Correct answer: Migas"
   },
   {
     "q": "Which food is associated with Germany?",
     "options": [
+      "I don’t know the answer",
       "Maultaschen",
       "Dhokla",
       "Locro",
       "Lamington"
     ],
-    "answer": 0,
+    "answer": 1,
     "explain": "Correct answer: Maultaschen"
   },
   {
     "q": "Which food is associated with Australia?",
     "options": [
+      "I don’t know the answer",
       "Barreado",
       "Hōtō",
       "Cjarsons",
       "Lamington"
     ],
-    "answer": 3,
+    "answer": 4,
     "explain": "Correct answer: Lamington"
   }
 ];
@@ -228,7 +235,6 @@ const QUESTIONS = [
     const optionsList = document.getElementById('options');
     const feedback = document.getElementById('feedback');
     const submitBtn = document.getElementById('submit');
-    const skipBtn = document.getElementById('skip');
     const end = document.getElementById('end');
     const quiz = document.getElementById('quiz');
     const final = document.getElementById('final');
@@ -302,7 +308,6 @@ const QUESTIONS = [
 
       answering = false;
       submitBtn.disabled = false;
-      skipBtn.disabled = false;
       const q = QUESTIONS[idx];
       counter.textContent = `Question ${idx+1} / ${total}`;
       scoreEl.textContent = `Score: ${score}`;
@@ -317,7 +322,7 @@ const QUESTIONS = [
         li.className = 'opt';
         li.innerHTML = `
           <input type="radio" name="opt" id="${id}" value="${i}" aria-labelledby="${id}-label" />
-          <label for="${id}"><span id="${id}-label">${String.fromCharCode(65 + i)}. ${text}</span></label>
+          <label for="${id}"><span id="${id}-label">${text}</span></label>
         `;
         optionsList.appendChild(li);
       });
@@ -343,7 +348,6 @@ const QUESTIONS = [
 	  // قفل کردن ورودی‌ها تا نتواند دوباره پاسخ دهد
 	  optionsList.querySelectorAll('input').forEach(inp => inp.disabled = true);
 	  submitBtn.disabled = true;
-	  skipBtn.disabled = true;
 
 	  modal.setAttribute('open','');
 	  setTimeout(() => closeModal.focus(), 50);
@@ -354,7 +358,6 @@ const QUESTIONS = [
 	  modal.removeAttribute('open');
 	  idx++;
 	  submitBtn.disabled = false;
-	  skipBtn.disabled = false;
 	  render();
 	}
 
@@ -401,7 +404,6 @@ const QUESTIONS = [
       const correct = (pick === q.answer);
       answering = true;
       submitBtn.disabled = true;
-      skipBtn.disabled = true;
       optionsList.querySelectorAll('input').forEach(inp => inp.disabled = true);
 
       // Log this attempt
@@ -415,7 +417,11 @@ const QUESTIONS = [
         timestamp_iso: nowISO()
       });
 
-      if(correct){
+      if (pick === 0) {
+        // Record an explicit unknown response with zero credit and continue.
+        idx++;
+        render();
+      } else if(correct){
         score++;
         feedback.textContent = 'Correct!';
         feedback.className = 'tag ok';
@@ -430,21 +436,6 @@ const QUESTIONS = [
       }
     });
 
-    // Record explicit "I don’t know" responses before advancing.
-    skipBtn.addEventListener('click', () => {
-      if (answering || idx >= QUESTIONS.length) return;
-      LOGS.push({
-        student_id: studentId,
-        question_index: idx + 1,
-        question_text: QUESTIONS[idx].q,
-        selected_option: '',
-        selected_text: 'I don’t know',
-        correct: 'FALSE',
-        timestamp_iso: nowISO()
-      });
-      idx++;
-      render();
-    });
     closeModal.addEventListener('click', closeModalFn);
 
     document.addEventListener('keydown', (e) => {
