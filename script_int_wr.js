@@ -1,10 +1,9 @@
-// ======= 4×4 Food–Country Memory Game with CSV Output =======
+// ======= 4×4 Food–Country Memory Game =======
 window.addEventListener('DOMContentLoaded', () => {
   // ---------- Settings ----------
   const maxPlays = 2;
   const completionCode = '1289';
 
-  // Read the participant's Qualtrics Response ID from the URL.
   const responseId =
     new URLSearchParams(window.location.search).get('responseId') || '';
 
@@ -34,7 +33,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadBtn');
   const roundPill = document.getElementById('round-pill');
 
-  // ---------- Eight food–country pairs ----------
+  // ---------- Food–country pairs ----------
   const PAIRS = [
     { food: 'img1.png', country: 'img9.png' },
     { food: 'img2.png', country: 'img10.png' },
@@ -74,6 +73,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }).formatToParts(date);
 
     const values = {};
+
     parts.forEach(part => {
       if (part.type !== 'literal') {
         values[part.type] = part.value;
@@ -99,7 +99,10 @@ window.addEventListener('DOMContentLoaded', () => {
     resolving = false;
     gameActive = false;
 
-    if (statusEl) statusEl.textContent = 'Find all eight food–country pairs.';
+    if (statusEl) {
+      statusEl.textContent = 'Find all eight food–country pairs.';
+    }
+
     if (movesEl) movesEl.textContent = 'Moves: 0';
     if (bar) bar.style.width = '0%';
     if (downloadBtn) downloadBtn.disabled = true;
@@ -126,7 +129,9 @@ window.addEventListener('DOMContentLoaded', () => {
     ];
 
     const escapeCSV = value =>
-      '"' + String(value == null ? '' : value).replaceAll('"', '""') + '"';
+      '"' +
+      String(value == null ? '' : value).replaceAll('"', '""') +
+      '"';
 
     const lines = [
       headers.join(','),
@@ -143,11 +148,12 @@ window.addEventListener('DOMContentLoaded', () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
 
-    const filenameStudentId = safeFilenamePart(studentId) || 'unknown';
+    const filenameStudentId =
+      safeFilenamePart(studentId) || 'unknown';
+
     const filenameResponseId =
       safeFilenamePart(responseId) || 'noResponseID';
 
-    // The logs retain their round number for later manual downloads.
     const roundNumber = LOGS[0].round;
 
     link.href = url;
@@ -170,12 +176,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const [card1, card2] = flippedCards;
 
     const isMatch =
-      card1.getAttribute('data-match') ===
-      card2.getAttribute('data-match');
+      card1.dataset.match === card2.dataset.match;
 
     moves++;
 
-    if (movesEl) movesEl.textContent = `Moves: ${moves}`;
+    if (movesEl) {
+      movesEl.textContent = `Moves: ${moves}`;
+    }
 
     LOGS.push({
       student_id: studentId,
@@ -183,21 +190,25 @@ window.addEventListener('DOMContentLoaded', () => {
       round: playCount + 1,
       move_index: moves,
       card1_id: card1.id,
-      card1_value: card1.getAttribute('data-image'),
+      card1_value: card1.dataset.image,
       card2_id: card2.id,
-      card2_value: card2.getAttribute('data-image'),
+      card2_value: card2.dataset.image,
       match: isMatch ? 'TRUE' : 'FALSE',
       timestamp_iso: nowISO()
     });
 
     if (isMatch) {
-      card1.classList.add('matched');
-      card2.classList.add('matched');
+      // Keep the cards exactly as they appear when revealed.
+      // Do not add the CSS class "matched".
+      card1.dataset.matched = 'true';
+      card2.dataset.matched = 'true';
 
+      // Their "flipped" class and background images remain unchanged.
       matchedPairs++;
 
       if (bar) {
-        bar.style.width = `${(matchedPairs / PAIRS.length) * 100}%`;
+        bar.style.width =
+          `${(matchedPairs / PAIRS.length) * 100}%`;
       }
 
       flippedCards = [];
@@ -207,6 +218,7 @@ window.addEventListener('DOMContentLoaded', () => {
         finishGame();
       }
     } else {
+      // Only incorrect pairs return face down.
       setTimeout(() => {
         [card1, card2].forEach(card => {
           card.classList.remove('flipped');
@@ -222,13 +234,15 @@ window.addEventListener('DOMContentLoaded', () => {
   // ---------- Card clicks ----------
   function onCardClick(card) {
     if (!gameActive || resolving) return;
-    if (card.classList.contains('matched')) return;
+
+    // Matched cards remain face up and cannot be selected again.
+    if (card.dataset.matched === 'true') return;
+
     if (card.classList.contains('flipped')) return;
 
     card.classList.add('flipped');
-
-    const image = card.getAttribute('data-image');
-    card.style.backgroundImage = `url('images/${image}')`;
+    card.style.backgroundImage =
+      `url('images/${card.dataset.image}')`;
 
     flippedCards.push(card);
 
@@ -255,18 +269,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
       card.className = 'card';
       card.id = `card${index + 1}`;
-      card.setAttribute('data-image', config.image);
-      card.setAttribute('data-match', String(config.match));
+      card.dataset.image = config.image;
+      card.dataset.match = String(config.match);
+      card.dataset.matched = 'false';
       card.style.backgroundImage = "url('images/back.png')";
 
       card.addEventListener('click', () => onCardClick(card));
+
       board.appendChild(card);
     });
   }
 
   // ---------- Start a round ----------
   function startRound() {
-    if (playCount >= maxPlays) return;
+    if (gameActive || playCount >= maxPlays) return;
 
     if (!board || !boardWrap) {
       alert('The game board was not found. Please check the HTML file.');
@@ -282,10 +298,13 @@ window.addEventListener('DOMContentLoaded', () => {
     boardWrap.style.display = 'block';
 
     if (roundPill) {
-      roundPill.textContent = `Round: ${playCount + 1} of ${maxPlays}`;
+      roundPill.textContent =
+        `Round: ${playCount + 1} of ${maxPlays}`;
     }
 
-    if (playAgainBtn) playAgainBtn.disabled = true;
+    if (playAgainBtn) {
+      playAgainBtn.disabled = true;
+    }
 
     gameActive = true;
   }
@@ -298,7 +317,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const completedRound = playCount + 1;
     playCount++;
 
-    if (boardWrap) boardWrap.style.display = 'none';
+    // Keep the completed board visible with all cards face up.
     if (end) end.style.display = 'block';
 
     if (downloadBtn) downloadBtn.disabled = false;
@@ -310,10 +329,13 @@ window.addEventListener('DOMContentLoaded', () => {
           'Please start the second round to complete this stage.';
       }
 
-      if (statusEl) statusEl.textContent = 'Round one completed.';
+      if (statusEl) {
+        statusEl.textContent = 'Round one completed.';
+      }
 
       if (roundPill) {
-        roundPill.textContent = `Round: ${completedRound} completed`;
+        roundPill.textContent =
+          `Round: ${completedRound} completed`;
       }
 
       if (playAgainBtn) {
@@ -327,25 +349,29 @@ window.addEventListener('DOMContentLoaded', () => {
         `This stage is complete. Your completion code is ${completionCode}. ` +
         'Return to the Qualtrics survey and enter this code to continue.';
 
-      // Put the code in the end-screen summary as well as the status.
-      if (summary) summary.textContent = completionMessage;
+      if (summary) {
+        summary.textContent = completionMessage;
+      }
 
       if (statusEl) {
         statusEl.textContent =
           `Stage completed. Completion code: ${completionCode}`;
       }
 
-      if (roundPill) roundPill.textContent = 'Round: Game Over';
+      if (roundPill) {
+        roundPill.textContent = 'Round: Game Over';
+      }
 
       if (playAgainBtn) {
         playAgainBtn.disabled = true;
         playAgainBtn.style.display = 'none';
       }
 
-      if (beginBtn) beginBtn.disabled = true;
+      if (beginBtn) {
+        beginBtn.disabled = true;
+      }
     }
 
-    // Save a separate CSV for each completed round.
     downloadCSV();
   }
 
@@ -369,7 +395,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
       studentId = id;
 
-      if (uidPill) uidPill.textContent = `ID: ${studentId}`;
+      if (uidPill) {
+        uidPill.textContent = `ID: ${studentId}`;
+      }
 
       startRound();
     });
@@ -397,6 +425,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ---------- Initial setup ----------
   resetState();
+
   if (end) end.style.display = 'none';
   if (boardWrap) boardWrap.style.display = 'none';
 });
