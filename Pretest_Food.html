@@ -132,97 +132,97 @@ const QUESTIONS = [
   {
     "q": "Which food is associated with Brazil?",
     "options": [
-      "I don’t know the answer",
       "Dhokla",
       "Locro",
       "Migas",
-      "Barreado"
+      "Barreado",
+      "I don’t know the answer"
     ],
-    "answer": 4,
+    "answer": 3,
     "explain": "Correct answer: Barreado"
   },
   {
     "q": "Which food is associated with Argentina?",
     "options": [
-      "I don’t know the answer",
       "Locro",
       "Cjarsons",
       "Maultaschen",
-      "Hōtō"
+      "Hōtō",
+      "I don’t know the answer"
     ],
-    "answer": 1,
+    "answer": 0,
     "explain": "Correct answer: Locro"
   },
   {
     "q": "Which food is associated with Japan?",
     "options": [
-      "I don’t know the answer",
       "Lamington",
       "Migas",
       "Hōtō",
-      "Dhokla"
+      "Dhokla",
+      "I don’t know the answer"
     ],
-    "answer": 3,
+    "answer": 2,
     "explain": "Correct answer: Hōtō"
   },
   {
     "q": "Which food is associated with India?",
     "options": [
-      "I don’t know the answer",
       "Maultaschen",
       "Dhokla",
       "Cjarsons",
-      "Barreado"
+      "Barreado",
+      "I don’t know the answer"
     ],
-    "answer": 2,
+    "answer": 1,
     "explain": "Correct answer: Dhokla"
   },
   {
     "q": "Which food is associated with Italy?",
     "options": [
-      "I don’t know the answer",
       "Migas",
       "Lamington",
       "Cjarsons",
-      "Locro"
+      "Locro",
+      "I don’t know the answer"
     ],
-    "answer": 3,
+    "answer": 2,
     "explain": "Correct answer: Cjarsons"
   },
   {
     "q": "Which food is associated with Spain?",
     "options": [
-      "I don’t know the answer",
       "Barreado",
       "Migas",
       "Hōtō",
-      "Maultaschen"
+      "Maultaschen",
+      "I don’t know the answer"
     ],
-    "answer": 2,
+    "answer": 1,
     "explain": "Correct answer: Migas"
   },
   {
     "q": "Which food is associated with Germany?",
     "options": [
-      "I don’t know the answer",
       "Maultaschen",
       "Dhokla",
       "Locro",
-      "Lamington"
+      "Lamington",
+      "I don’t know the answer"
     ],
-    "answer": 1,
+    "answer": 0,
     "explain": "Correct answer: Maultaschen"
   },
   {
     "q": "Which food is associated with Australia?",
     "options": [
-      "I don’t know the answer",
       "Barreado",
       "Hōtō",
       "Cjarsons",
-      "Lamington"
+      "Lamington",
+      "I don’t know the answer"
     ],
-    "answer": 4,
+    "answer": 3,
     "explain": "Correct answer: Lamington"
   }
 ];
@@ -417,7 +417,7 @@ const QUESTIONS = [
         timestamp_iso: nowISO()
       });
 
-      if (pick === 0) {
+      if (q.options[pick] === 'I don’t know the answer') {
         // Record an explicit unknown response with zero credit and continue.
         idx++;
         render();
