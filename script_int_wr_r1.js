@@ -158,7 +158,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     link.href = url;
     link.download =
-      `memory_log_int_wr_${filenameStudentId}_` +
+      `memory_log_int_wr_r1_${filenameStudentId}_` +
       `${filenameResponseId}_round${roundNumber}_` +
       `${memphisFilenameTime()}.csv`;
 
