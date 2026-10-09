@@ -95,7 +95,7 @@ window.addEventListener('DOMContentLoaded', () => {
     flippedCards = [];
     matchedPairs = 0;
     moves = 0;
-    LOGS = [];
+    S = [];
     resolving = false;
     gameActive = false;
 
@@ -110,7 +110,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ---------- CSV download ----------
   function downloadCSV() {
-    if (!LOGS.length) {
+    if (!S.length) {
       alert('No activity has been recorded for download yet.');
       return;
     }
@@ -135,7 +135,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const lines = [
       headers.join(','),
-      ...LOGS.map(row =>
+      ...S.map(row =>
         headers.map(header => escapeCSV(row[header])).join(',')
       )
     ];
@@ -154,11 +154,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const filenameResponseId =
       safeFilenamePart(responseId) || 'noResponseID';
 
-    const roundNumber = LOGS[0].round;
+    const roundNumber = S[0].round;
 
     link.href = url;
     link.download =
-      `memory_log_int_wr_r2_1_${filenameStudentId}_` +
+      `memory_log_int_wor_r2_1_${filenameStudentId}_` +
       `${filenameResponseId}_round${roundNumber}_` +
       `${memphisFilenameTime()}.csv`;
 
