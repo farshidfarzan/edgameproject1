@@ -53,6 +53,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
+
     return array;
   }
 
@@ -95,7 +96,7 @@ window.addEventListener('DOMContentLoaded', () => {
     flippedCards = [];
     matchedPairs = 0;
     moves = 0;
-    S = [];
+    LOGS = [];
     resolving = false;
     gameActive = false;
 
@@ -110,7 +111,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // ---------- CSV download ----------
   function downloadCSV() {
-    if (!S.length) {
+    if (!LOGS.length) {
       alert('No activity has been recorded for download yet.');
       return;
     }
@@ -135,7 +136,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const lines = [
       headers.join(','),
-      ...S.map(row =>
+      ...LOGS.map(row =>
         headers.map(header => escapeCSV(row[header])).join(',')
       )
     ];
@@ -154,7 +155,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const filenameResponseId =
       safeFilenamePart(responseId) || 'noResponseID';
 
-    const roundNumber = S[0].round;
+    const roundNumber = LOGS[0].round;
 
     link.href = url;
     link.download =
