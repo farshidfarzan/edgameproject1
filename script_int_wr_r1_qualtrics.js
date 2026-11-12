@@ -1,7 +1,7 @@
 // ======= 4×4 Food–Country Memory Game =======
 window.addEventListener('DOMContentLoaded', () => {
   // ---------- Settings ----------
-  const maxPlays = 2;
+  const maxPlays = 1;
   const completionCode = '1289';
 
   const responseId =
@@ -17,7 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let gameActive = false;
   let resolving = false;
 
-  // Qualtrics bridge for this stage. Session logs survive each board reset.
+  // ---------- Qualtrics connection ----------
   const sessionLogs = [];
   let startedAt = '';
   let completedAt = '';
@@ -27,6 +27,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   function sendSnapshot() {
     if (!bridgeOrigin || !bridgeToken) return;
+
     window.parent.postMessage({
       type: 'MEMORY_DATA',
       token: bridgeToken,
@@ -52,27 +53,50 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('message', event => {
     const message = event.data;
-    if (window.parent === window || event.source !== window.parent || !message) return;
+
+    if (
+      window.parent === window ||
+      event.source !== window.parent ||
+      !message
+    ) return;
+
     if (message.type === 'MEMORY_INIT') {
-      if (event.origin !== 'https://memphis.co1.qualtrics.com' ||
-          typeof message.token !== 'string' || message.token.length < 16 ||
-          message.responseId !== responseId) return;
+      if (
+        event.origin !== 'https://memphis.co1.qualtrics.com' ||
+        typeof message.token !== 'string' ||
+        message.token.length < 16 ||
+        message.responseId !== responseId
+      ) return;
+
       bridgeOrigin = event.origin;
       bridgeToken = message.token;
       sendSnapshot();
-    } else if (event.origin === bridgeOrigin && message.token === bridgeToken) {
+    } else if (
+      event.origin === bridgeOrigin &&
+      message.token === bridgeToken
+    ) {
       const feedback = document.getElementById('bridge-status');
-      if (message.type === 'MEMORY_ACK' && message.revision === revision &&
-          playCount === maxPlays && feedback) {
-        feedback.textContent = 'Results received by the survey page. Click Next below to submit your results.';
+
+      if (
+        message.type === 'MEMORY_ACK' &&
+        message.revision === revision &&
+        playCount === maxPlays &&
+        feedback
+      ) {
+        feedback.textContent =
+          'Results received by the survey page. Click Next below to submit your results.';
       } else if (message.type === 'MEMORY_ERROR' && feedback) {
-        feedback.textContent = 'The survey could not accept the data. Keep this page open and contact the researcher.';
+        feedback.textContent =
+          'The survey could not accept the data. Keep this page open and contact the researcher.';
       }
     }
   });
 
   const bridgeTimer = setInterval(sendSnapshot, 2000);
-  window.addEventListener('pagehide', () => clearInterval(bridgeTimer));
+
+  window.addEventListener('pagehide', () => {
+    clearInterval(bridgeTimer);
+  });
 
   // ---------- DOM elements ----------
   const statusEl = document.getElementById('status');
@@ -110,6 +134,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
+
     return array;
   }
 
@@ -257,12 +282,8 @@ window.addEventListener('DOMContentLoaded', () => {
     sessionLogs.push(LOGS[LOGS.length - 1]);
 
     if (isMatch) {
-      // Keep the cards exactly as they appear when revealed.
-      // Do not add the CSS class "matched".
       card1.dataset.matched = 'true';
       card2.dataset.matched = 'true';
-
-      // Their "flipped" class and background images remain unchanged.
       matchedPairs++;
 
       if (bar) {
@@ -277,7 +298,6 @@ window.addEventListener('DOMContentLoaded', () => {
         finishGame();
       }
     } else {
-      // Only incorrect pairs return face down.
       setTimeout(() => {
         [card1, card2].forEach(card => {
           card.classList.remove('flipped');
@@ -288,6 +308,7 @@ window.addEventListener('DOMContentLoaded', () => {
         resolving = false;
       }, 800);
     }
+
     revision++;
     sendSnapshot();
   }
@@ -295,10 +316,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // ---------- Card clicks ----------
   function onCardClick(card) {
     if (!gameActive || resolving) return;
-
-    // Matched cards remain face up and cannot be selected again.
     if (card.dataset.matched === 'true') return;
-
     if (card.classList.contains('flipped')) return;
 
     card.classList.add('flipped');
@@ -368,7 +386,9 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     gameActive = true;
+
     if (!startedAt) startedAt = nowISO();
+
     revision++;
     sendSnapshot();
   }
@@ -381,9 +401,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const completedRound = playCount + 1;
     playCount++;
 
-    // Keep the completed board visible with all cards face up.
     if (end) end.style.display = 'block';
-
     if (downloadBtn) downloadBtn.disabled = false;
 
     if (playCount < maxPlays) {
@@ -437,6 +455,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     if (playCount === maxPlays) completedAt = nowISO();
+
     revision++;
     sendSnapshot();
   }
