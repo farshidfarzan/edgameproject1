@@ -17,13 +17,146 @@ window.addEventListener('DOMContentLoaded', () => {
   let gameActive = false;
   let resolving = false;
 
-  // ---------- Qualtrics connection ----------
+  // ---------- Qualtrics connection and saved completion ----------
   const sessionLogs = [];
   let startedAt = '';
   let completedAt = '';
   let bridgeOrigin = '';
   let bridgeToken = '';
   let revision = 0;
+
+  const storageKey = responseId
+    ? 'memory:int_wr_r1:' + responseId
+    : '';
+
+  function saveCompletedGame() {
+    if (!storageKey || playCount !== maxPlays) return;
+
+    const saved = {
+      schemaVersion: 1,
+      responseId,
+      studentId,
+      startedAt,
+      completedAt,
+      moves,
+      logs: sessionLogs,
+      cards: Array.from(board.children).map(card => ({
+        id: card.id,
+        image: card.dataset.image,
+        match: card.dataset.match
+      }))
+    };
+
+    try {
+      window.sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(saved)
+      );
+    } catch (error) {
+      const feedback = document.getElementById('bridge-status');
+
+      if (feedback) {
+        feedback.textContent =
+          'Please keep this page open. The browser could not preserve your completed game after a page reload.';
+      }
+    }
+  }
+
+  function restoreCompletedGame() {
+    if (!storageKey || !board || !boardWrap) return false;
+
+    let saved;
+
+    try {
+      saved = JSON.parse(
+        window.sessionStorage.getItem(storageKey)
+      );
+    } catch (error) {
+      return false;
+    }
+
+    if (
+      !saved ||
+      saved.schemaVersion !== 1 ||
+      saved.responseId !== responseId ||
+      !Array.isArray(saved.cards) ||
+      saved.cards.length !== 16 ||
+      !Array.isArray(saved.logs) ||
+      !Number.isInteger(saved.moves) ||
+      saved.moves < 8 ||
+      saved.moves !== saved.logs.length ||
+      !saved.startedAt ||
+      !saved.completedAt
+    ) return false;
+
+    const expectedImages = PAIRS.flatMap(pair => [
+      pair.food,
+      pair.country
+    ]);
+
+    const images = saved.cards.map(card => card.image);
+
+    if (
+      new Set(images).size !== 16 ||
+      !expectedImages.every(image => images.includes(image)) ||
+      !saved.cards.every(card => {
+        const pair = PAIRS[Number(card.match)];
+
+        return pair && (
+          pair.food === card.image ||
+          pair.country === card.image
+        );
+      })
+    ) return false;
+
+    studentId = saved.studentId;
+    startedAt = saved.startedAt;
+    completedAt = saved.completedAt;
+    moves = saved.moves;
+    LOGS = saved.logs;
+    sessionLogs.push(...saved.logs);
+    matchedPairs = PAIRS.length;
+    flippedCards = [];
+
+    board.innerHTML = '';
+
+    saved.cards.forEach(config => {
+      const card = document.createElement('div');
+
+      card.className = 'card flipped';
+      card.id = config.id;
+      card.dataset.image = config.image;
+      card.dataset.match = config.match;
+      card.dataset.matched = 'true';
+      card.style.backgroundImage =
+        `url('images/${config.image}')`;
+
+      board.appendChild(card);
+    });
+
+    if (uidPill) {
+      uidPill.textContent = `ID: ${studentId}`;
+    }
+
+    if (movesEl) {
+      movesEl.textContent = `Moves: ${moves}`;
+    }
+
+    if (start) {
+      start.style.display = 'none';
+    }
+
+    if (bar) {
+      bar.style.width = '100%';
+    }
+
+    boardWrap.style.display = 'block';
+
+    // Restore the completion display and resend the same results.
+    finishGame();
+
+    return true;
+  }
 
   function sendSnapshot() {
     if (!bridgeOrigin || !bridgeToken) return;
@@ -75,7 +208,8 @@ window.addEventListener('DOMContentLoaded', () => {
       event.origin === bridgeOrigin &&
       message.token === bridgeToken
     ) {
-      const feedback = document.getElementById('bridge-status');
+      const feedback =
+        document.getElementById('bridge-status');
 
       if (
         message.type === 'MEMORY_ACK' &&
@@ -85,7 +219,10 @@ window.addEventListener('DOMContentLoaded', () => {
       ) {
         feedback.textContent =
           'Results received by the survey page. Click Next below to submit your results.';
-      } else if (message.type === 'MEMORY_ERROR' && feedback) {
+      } else if (
+        message.type === 'MEMORY_ERROR' &&
+        feedback
+      ) {
         feedback.textContent =
           'The survey could not accept the data. Keep this page open and contact the researcher.';
       }
@@ -132,6 +269,7 @@ window.addEventListener('DOMContentLoaded', () => {
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
+
       [array[i], array[j]] = [array[j], array[i]];
     }
 
@@ -182,12 +320,21 @@ window.addEventListener('DOMContentLoaded', () => {
     gameActive = false;
 
     if (statusEl) {
-      statusEl.textContent = 'Find all eight food–country pairs.';
+      statusEl.textContent =
+        'Find all eight food–country pairs.';
     }
 
-    if (movesEl) movesEl.textContent = 'Moves: 0';
-    if (bar) bar.style.width = '0%';
-    if (downloadBtn) downloadBtn.disabled = true;
+    if (movesEl) {
+      movesEl.textContent = 'Moves: 0';
+    }
+
+    if (bar) {
+      bar.style.width = '0%';
+    }
+
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+    }
   }
 
   // ---------- CSV download ----------
@@ -218,7 +365,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const lines = [
       headers.join(','),
       ...LOGS.map(row =>
-        headers.map(header => escapeCSV(row[header])).join(',')
+        headers
+          .map(header => escapeCSV(row[header]))
+          .join(',')
       )
     ];
 
@@ -284,6 +433,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (isMatch) {
       card1.dataset.matched = 'true';
       card2.dataset.matched = 'true';
+
       matchedPairs++;
 
       if (bar) {
@@ -301,7 +451,8 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         [card1, card2].forEach(card => {
           card.classList.remove('flipped');
-          card.style.backgroundImage = "url('images/back.png')";
+          card.style.backgroundImage =
+            "url('images/back.png')";
         });
 
         flippedCards = [];
@@ -336,8 +487,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const configs = [];
 
     PAIRS.forEach((pair, index) => {
-      configs.push({ image: pair.food, match: index });
-      configs.push({ image: pair.country, match: index });
+      configs.push({
+        image: pair.food,
+        match: index
+      });
+
+      configs.push({
+        image: pair.country,
+        match: index
+      });
     });
 
     shuffle(configs);
@@ -351,9 +509,12 @@ window.addEventListener('DOMContentLoaded', () => {
       card.dataset.image = config.image;
       card.dataset.match = String(config.match);
       card.dataset.matched = 'false';
-      card.style.backgroundImage = "url('images/back.png')";
+      card.style.backgroundImage =
+        "url('images/back.png')";
 
-      card.addEventListener('click', () => onCardClick(card));
+      card.addEventListener('click', () => {
+        onCardClick(card);
+      });
 
       board.appendChild(card);
     });
@@ -364,15 +525,22 @@ window.addEventListener('DOMContentLoaded', () => {
     if (gameActive || playCount >= maxPlays) return;
 
     if (!board || !boardWrap) {
-      alert('The game board was not found. Please check the HTML file.');
+      alert(
+        'The game board was not found. Please check the HTML file.'
+      );
       return;
     }
 
     resetState();
     setupBoard();
 
-    if (start) start.style.display = 'none';
-    if (end) end.style.display = 'none';
+    if (start) {
+      start.style.display = 'none';
+    }
+
+    if (end) {
+      end.style.display = 'none';
+    }
 
     boardWrap.style.display = 'block';
 
@@ -387,7 +555,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     gameActive = true;
 
-    if (!startedAt) startedAt = nowISO();
+    if (!startedAt) {
+      startedAt = nowISO();
+    }
 
     revision++;
     sendSnapshot();
@@ -401,8 +571,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const completedRound = playCount + 1;
     playCount++;
 
-    if (end) end.style.display = 'block';
-    if (downloadBtn) downloadBtn.disabled = false;
+    if (end) {
+      end.style.display = 'block';
+    }
+
+    if (downloadBtn) {
+      downloadBtn.disabled = false;
+    }
 
     if (playCount < maxPlays) {
       if (summary) {
@@ -454,7 +629,11 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (playCount === maxPlays) completedAt = nowISO();
+    if (playCount === maxPlays && !completedAt) {
+      completedAt = nowISO();
+    }
+
+    saveCompletedGame();
 
     revision++;
     sendSnapshot();
@@ -511,6 +690,13 @@ window.addEventListener('DOMContentLoaded', () => {
   // ---------- Initial setup ----------
   resetState();
 
-  if (end) end.style.display = 'none';
-  if (boardWrap) boardWrap.style.display = 'none';
+  if (end) {
+    end.style.display = 'none';
+  }
+
+  if (boardWrap) {
+    boardWrap.style.display = 'none';
+  }
+
+  restoreCompletedGame();
 });
