@@ -2,7 +2,7 @@
 window.addEventListener('DOMContentLoaded', () => {
   // ---------- Settings ----------
   const maxPlays = 1;
-  const completionCode = '1289';
+  const completionCode = '3454';
 
   const responseId =
     new URLSearchParams(window.location.search).get('responseId') || '';
