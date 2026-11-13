@@ -1,13 +1,10 @@
-// ======= 4×4 Food–Country Memory Game =======
 window.addEventListener('DOMContentLoaded', () => {
-  // ---------- Settings ----------
   const maxPlays = 1;
   const completionCode = '6542';
 
   const responseId =
     new URLSearchParams(window.location.search).get('responseId') || '';
 
-  // ---------- Game state ----------
   let playCount = 0;
   let studentId = '';
   let flippedCards = [];
@@ -17,7 +14,6 @@ window.addEventListener('DOMContentLoaded', () => {
   let gameActive = false;
   let resolving = false;
 
-  // Qualtrics bridge for this stage. Session logs survive each board reset.
   const sessionLogs = [];
   let startedAt = '';
   let completedAt = '';
@@ -25,8 +21,132 @@ window.addEventListener('DOMContentLoaded', () => {
   let bridgeToken = '';
   let revision = 0;
 
+  const storageKey = responseId
+    ? 'memory:int_r2_2:' + responseId
+    : '';
+
+  function saveCompletedGame() {
+    if (!storageKey || playCount !== maxPlays) return;
+
+    const saved = {
+      responseId,
+      studentId,
+      startedAt,
+      completedAt,
+      moves,
+      logs: sessionLogs,
+      cards: Array.from(board.children).map(card => ({
+        id: card.id,
+        image: card.dataset.image,
+        match: card.dataset.match
+      }))
+    };
+
+    try {
+      window.sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(saved)
+      );
+    } catch (error) {
+      console.warn(
+        'The completed game could not be preserved.',
+        error
+      );
+    }
+  }
+
+  function restoreCompletedGame() {
+    if (!storageKey || !board || !boardWrap) return;
+
+    let saved;
+
+    try {
+      saved = JSON.parse(
+        window.sessionStorage.getItem(storageKey)
+      );
+    } catch (error) {
+      return;
+    }
+
+    if (
+      !saved ||
+      saved.responseId !== responseId ||
+      !saved.startedAt ||
+      !saved.completedAt ||
+      !Number.isInteger(saved.moves) ||
+      saved.moves < 8 ||
+      !Array.isArray(saved.logs) ||
+      saved.logs.length !== saved.moves ||
+      !Array.isArray(saved.cards) ||
+      saved.cards.length !== 16
+    ) return;
+
+    const images = saved.cards.map(card => card.image);
+
+    if (
+      new Set(images).size !== 16 ||
+      !PAIRS.every(pair =>
+        images.includes(pair.food) &&
+        images.includes(pair.country)
+      ) ||
+      !saved.cards.every(card => {
+        const pair = PAIRS[Number(card.match)];
+
+        return pair && (
+          pair.food === card.image ||
+          pair.country === card.image
+        );
+      })
+    ) return;
+
+    studentId = saved.studentId;
+    startedAt = saved.startedAt;
+    completedAt = saved.completedAt;
+    moves = saved.moves;
+    LOGS = saved.logs;
+    sessionLogs.push(...saved.logs);
+    matchedPairs = PAIRS.length;
+    flippedCards = [];
+
+    board.innerHTML = '';
+
+    saved.cards.forEach(config => {
+      const card = document.createElement('div');
+
+      card.id = config.id;
+      card.className = 'card flipped';
+      card.dataset.image = config.image;
+      card.dataset.match = config.match;
+      card.dataset.matched = 'true';
+      card.style.backgroundImage =
+        `url('images/${config.image}')`;
+
+      board.appendChild(card);
+    });
+
+    if (uidPill) {
+      uidPill.textContent = `ID: ${studentId}`;
+    }
+
+    if (movesEl) {
+      movesEl.textContent = `Moves: ${moves}`;
+    }
+
+    if (bar) {
+      bar.style.width = '100%';
+    }
+
+    if (start) {
+      start.style.display = 'none';
+    }
+
+    boardWrap.style.display = 'block';
+    finishGame();
+  }
+
   function sendSnapshot() {
     if (!bridgeOrigin || !bridgeToken) return;
+
     window.parent.postMessage({
       type: 'MEMORY_DATA',
       token: bridgeToken,
@@ -53,27 +173,54 @@ window.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('message', event => {
     const message = event.data;
-    if (window.parent === window || event.source !== window.parent || !message) return;
+
+    if (
+      window.parent === window ||
+      event.source !== window.parent ||
+      !message
+    ) return;
+
     if (message.type === 'MEMORY_INIT') {
-      if (event.origin !== 'https://memphis.co1.qualtrics.com' ||
-          typeof message.token !== 'string' || message.token.length < 16 ||
-          message.responseId !== responseId) return;
+      if (
+        event.origin !== 'https://memphis.co1.qualtrics.com' ||
+        typeof message.token !== 'string' ||
+        message.token.length < 16 ||
+        message.responseId !== responseId
+      ) return;
+
       bridgeOrigin = event.origin;
       bridgeToken = message.token;
       sendSnapshot();
-    } else if (event.origin === bridgeOrigin && message.token === bridgeToken) {
-      const feedback = document.getElementById('bridge-status');
-      if (message.type === 'MEMORY_ACK' && message.revision === revision &&
-          playCount === maxPlays && feedback) {
-        feedback.textContent = 'Results received by the survey page. Click Next below to submit your results.';
-      } else if (message.type === 'MEMORY_ERROR' && feedback) {
-        feedback.textContent = 'The survey could not accept the data. Keep this page open and contact the researcher.';
+    } else if (
+      event.origin === bridgeOrigin &&
+      message.token === bridgeToken
+    ) {
+      const feedback =
+        document.getElementById('bridge-status');
+
+      if (
+        message.type === 'MEMORY_ACK' &&
+        message.revision === revision &&
+        playCount === maxPlays &&
+        feedback
+      ) {
+        feedback.textContent =
+          'Results received by the survey page. Click Next below to submit your results.';
+      } else if (
+        message.type === 'MEMORY_ERROR' &&
+        feedback
+      ) {
+        feedback.textContent =
+          'The survey could not accept the data. Keep this page open and contact the researcher.';
       }
     }
   });
 
   const bridgeTimer = setInterval(sendSnapshot, 2000);
-  window.addEventListener('pagehide', () => clearInterval(bridgeTimer));
+
+  window.addEventListener('pagehide', () => {
+    clearInterval(bridgeTimer);
+  });
 
   // ---------- DOM elements ----------
   const statusEl = document.getElementById('status');
@@ -91,7 +238,6 @@ window.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadBtn');
   const roundPill = document.getElementById('round-pill');
 
-  // ---------- Food–country pairs ----------
   const PAIRS = [
     { food: 'img1.png', country: 'img9.png' },
     { food: 'img2.png', country: 'img10.png' },
@@ -103,7 +249,6 @@ window.addEventListener('DOMContentLoaded', () => {
     { food: 'img8.png', country: 'img16.png' }
   ];
 
-  // ---------- Helpers ----------
   const nowISO = () => new Date().toISOString();
 
   function shuffle(array) {
@@ -111,6 +256,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
     }
+
     return array;
   }
 
@@ -148,7 +294,6 @@ window.addEventListener('DOMContentLoaded', () => {
     ].join('-');
   }
 
-  // ---------- Reset current round ----------
   function resetState() {
     flippedCards = [];
     matchedPairs = 0;
@@ -158,7 +303,8 @@ window.addEventListener('DOMContentLoaded', () => {
     gameActive = false;
 
     if (statusEl) {
-      statusEl.textContent = 'Find all eight food–country pairs.';
+      statusEl.textContent =
+        'Find all eight food–country pairs.';
     }
 
     if (movesEl) movesEl.textContent = 'Moves: 0';
@@ -166,7 +312,6 @@ window.addEventListener('DOMContentLoaded', () => {
     if (downloadBtn) downloadBtn.disabled = true;
   }
 
-  // ---------- CSV download ----------
   function downloadCSV() {
     if (!LOGS.length) {
       alert('No activity has been recorded for download yet.');
@@ -227,12 +372,10 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  // ---------- Resolve two revealed cards ----------
   function handleResolve() {
     if (!gameActive || flippedCards.length !== 2) return;
 
     const [card1, card2] = flippedCards;
-
     const isMatch =
       card1.dataset.match === card2.dataset.match;
 
@@ -259,12 +402,8 @@ window.addEventListener('DOMContentLoaded', () => {
     sessionLogs.push(LOGS[LOGS.length - 1]);
 
     if (isMatch) {
-      // Keep the cards exactly as they appear when revealed.
-      // Do not add the CSS class "matched".
       card1.dataset.matched = 'true';
       card2.dataset.matched = 'true';
-
-      // Their "flipped" class and background images remain unchanged.
       matchedPairs++;
 
       if (bar) {
@@ -279,7 +418,6 @@ window.addEventListener('DOMContentLoaded', () => {
         finishGame();
       }
     } else {
-      // Only incorrect pairs return face down.
       setTimeout(() => {
         [card1, card2].forEach(card => {
           card.classList.remove('flipped');
@@ -290,17 +428,14 @@ window.addEventListener('DOMContentLoaded', () => {
         resolving = false;
       }, 800);
     }
+
     revision++;
     sendSnapshot();
   }
 
-  // ---------- Card clicks ----------
   function onCardClick(card) {
     if (!gameActive || resolving) return;
-
-    // Matched cards remain face up and cannot be selected again.
     if (card.dataset.matched === 'true') return;
-
     if (card.classList.contains('flipped')) return;
 
     card.classList.add('flipped');
@@ -315,7 +450,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ---------- Create 16 shuffled cards ----------
   function setupBoard() {
     const configs = [];
 
@@ -338,12 +472,10 @@ window.addEventListener('DOMContentLoaded', () => {
       card.style.backgroundImage = "url('images/back.png')";
 
       card.addEventListener('click', () => onCardClick(card));
-
       board.appendChild(card);
     });
   }
 
-  // ---------- Start a round ----------
   function startRound() {
     if (gameActive || playCount >= maxPlays) return;
 
@@ -370,12 +502,13 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     gameActive = true;
+
     if (!startedAt) startedAt = nowISO();
+
     revision++;
     sendSnapshot();
   }
 
-  // ---------- Finish a round ----------
   function finishGame() {
     gameActive = false;
     resolving = false;
@@ -383,9 +516,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const completedRound = playCount + 1;
     playCount++;
 
-    // Keep the completed board visible with all cards face up.
     if (end) end.style.display = 'block';
-
     if (downloadBtn) downloadBtn.disabled = false;
 
     if (playCount < maxPlays) {
@@ -438,12 +569,16 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (playCount === maxPlays) completedAt = nowISO();
+    if (playCount === maxPlays && !completedAt) {
+      completedAt = nowISO();
+    }
+
+    saveCompletedGame();
+
     revision++;
     sendSnapshot();
   }
 
-  // ---------- Begin button ----------
   if (beginBtn) {
     beginBtn.addEventListener('click', () => {
       if (gameActive || playCount > 0) return;
@@ -471,7 +606,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- Second-round button ----------
   if (playAgainBtn) {
     playAgainBtn.addEventListener('click', () => {
       if (gameActive || playCount !== 1) return;
@@ -479,7 +613,6 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- Manual download ----------
   if (downloadBtn) {
     downloadBtn.addEventListener('click', () => {
       if (matchedPairs < PAIRS.length) {
@@ -491,9 +624,10 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- Initial setup ----------
   resetState();
 
   if (end) end.style.display = 'none';
   if (boardWrap) boardWrap.style.display = 'none';
+
+  restoreCompletedGame();
 });
