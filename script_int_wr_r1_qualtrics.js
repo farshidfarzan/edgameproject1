@@ -1,4 +1,4 @@
-// ======= 4×4 Food–Country Memory Game =======
+// ======= 6×6 Food–Country Memory Game =======
 window.addEventListener('DOMContentLoaded', () => {
   // ---------- Settings ----------
   const maxPlays = 1;
@@ -6,6 +6,34 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const responseId =
     new URLSearchParams(window.location.search).get('responseId') || '';
+
+  // ---------- Food–country pairs ----------
+  const PAIRS = [
+    // Original eight pairs: unchanged.
+    { food: 'img1.png', country: 'img9.png' },
+    { food: 'img2.png', country: 'img10.png' },
+    { food: 'img3.png', country: 'img11.png' },
+    { food: 'img4.png', country: 'img12.png' },
+    { food: 'img5.png', country: 'img13.png' },
+    { food: 'img6.png', country: 'img14.png' },
+    { food: 'img7.png', country: 'img15.png' },
+    { food: 'img8.png', country: 'img16.png' },
+
+    // Ten new pairs.
+    { food: 'img17.png', country: 'img27.png' },
+    { food: 'img18.png', country: 'img28.png' },
+    { food: 'img19.png', country: 'img29.png' },
+    { food: 'img20.png', country: 'img30.png' },
+    { food: 'img21.png', country: 'img31.png' },
+    { food: 'img22.png', country: 'img32.png' },
+    { food: 'img23.png', country: 'img33.png' },
+    { food: 'img24.png', country: 'img34.png' },
+    { food: 'img25.png', country: 'img35.png' },
+    { food: 'img26.png', country: 'img36.png' }
+  ];
+
+  const totalPairs = PAIRS.length;
+  const totalCards = totalPairs * 2;
 
   // ---------- Game state ----------
   let playCount = 0;
@@ -17,7 +45,7 @@ window.addEventListener('DOMContentLoaded', () => {
   let gameActive = false;
   let resolving = false;
 
-  // ---------- Qualtrics connection and saved completion ----------
+  // ---------- Qualtrics connection ----------
   const sessionLogs = [];
   let startedAt = '';
   let completedAt = '';
@@ -25,215 +53,10 @@ window.addEventListener('DOMContentLoaded', () => {
   let bridgeToken = '';
   let revision = 0;
 
+  // Separate completed games from the previous 4×4 version.
   const storageKey = responseId
-    ? 'memory:int_wr_r1:' + responseId
+    ? 'memory:int_wr_r1:6x6:' + responseId
     : '';
-
-  function saveCompletedGame() {
-    if (!storageKey || playCount !== maxPlays) return;
-
-    const saved = {
-      schemaVersion: 1,
-      responseId,
-      studentId,
-      startedAt,
-      completedAt,
-      moves,
-      logs: sessionLogs,
-      cards: Array.from(board.children).map(card => ({
-        id: card.id,
-        image: card.dataset.image,
-        match: card.dataset.match
-      }))
-    };
-
-    try {
-      window.sessionStorage.setItem(
-        storageKey,
-        JSON.stringify(saved)
-      );
-    } catch (error) {
-      const feedback = document.getElementById('bridge-status');
-
-      if (feedback) {
-        feedback.textContent =
-          'Please keep this page open. The browser could not preserve your completed game after a page reload.';
-      }
-    }
-  }
-
-  function restoreCompletedGame() {
-    if (!storageKey || !board || !boardWrap) return false;
-
-    let saved;
-
-    try {
-      saved = JSON.parse(
-        window.sessionStorage.getItem(storageKey)
-      );
-    } catch (error) {
-      return false;
-    }
-
-    if (
-      !saved ||
-      saved.schemaVersion !== 1 ||
-      saved.responseId !== responseId ||
-      !Array.isArray(saved.cards) ||
-      saved.cards.length !== 16 ||
-      !Array.isArray(saved.logs) ||
-      !Number.isInteger(saved.moves) ||
-      saved.moves < 8 ||
-      saved.moves !== saved.logs.length ||
-      !saved.startedAt ||
-      !saved.completedAt
-    ) return false;
-
-    const expectedImages = PAIRS.flatMap(pair => [
-      pair.food,
-      pair.country
-    ]);
-
-    const images = saved.cards.map(card => card.image);
-
-    if (
-      new Set(images).size !== 16 ||
-      !expectedImages.every(image => images.includes(image)) ||
-      !saved.cards.every(card => {
-        const pair = PAIRS[Number(card.match)];
-
-        return pair && (
-          pair.food === card.image ||
-          pair.country === card.image
-        );
-      })
-    ) return false;
-
-    studentId = saved.studentId;
-    startedAt = saved.startedAt;
-    completedAt = saved.completedAt;
-    moves = saved.moves;
-    LOGS = saved.logs;
-    sessionLogs.push(...saved.logs);
-    matchedPairs = PAIRS.length;
-    flippedCards = [];
-
-    board.innerHTML = '';
-
-    saved.cards.forEach(config => {
-      const card = document.createElement('div');
-
-      card.className = 'card flipped';
-      card.id = config.id;
-      card.dataset.image = config.image;
-      card.dataset.match = config.match;
-      card.dataset.matched = 'true';
-      card.style.backgroundImage =
-        `url('images/${config.image}')`;
-
-      board.appendChild(card);
-    });
-
-    if (uidPill) {
-      uidPill.textContent = `ID: ${studentId}`;
-    }
-
-    if (movesEl) {
-      movesEl.textContent = `Moves: ${moves}`;
-    }
-
-    if (start) {
-      start.style.display = 'none';
-    }
-
-    if (bar) {
-      bar.style.width = '100%';
-    }
-
-    boardWrap.style.display = 'block';
-
-    // Restore the completion display and resend the same results.
-    finishGame();
-
-    return true;
-  }
-
-  function sendSnapshot() {
-    if (!bridgeOrigin || !bridgeToken) return;
-
-    window.parent.postMessage({
-      type: 'MEMORY_DATA',
-      token: bridgeToken,
-      revision,
-      payload: {
-        schemaVersion: 1,
-        responseId,
-        studentId,
-        condition: 'int_wr',
-        round: 1,
-        startedAt,
-        completedAt,
-        completed: playCount === maxPlays,
-        completedRounds: playCount,
-        maxPlays,
-        moves: sessionLogs.length,
-        currentRoundMoves: moves,
-        matchedPairs,
-        logs: sessionLogs.slice()
-      }
-    }, bridgeOrigin);
-  }
-
-  window.addEventListener('message', event => {
-    const message = event.data;
-
-    if (
-      window.parent === window ||
-      event.source !== window.parent ||
-      !message
-    ) return;
-
-    if (message.type === 'MEMORY_INIT') {
-      if (
-        event.origin !== 'https://memphis.co1.qualtrics.com' ||
-        typeof message.token !== 'string' ||
-        message.token.length < 16 ||
-        message.responseId !== responseId
-      ) return;
-
-      bridgeOrigin = event.origin;
-      bridgeToken = message.token;
-      sendSnapshot();
-    } else if (
-      event.origin === bridgeOrigin &&
-      message.token === bridgeToken
-    ) {
-      const feedback =
-        document.getElementById('bridge-status');
-
-      if (
-        message.type === 'MEMORY_ACK' &&
-        message.revision === revision &&
-        playCount === maxPlays &&
-        feedback
-      ) {
-        feedback.textContent =
-          'Results received by the survey page. Click Next below to submit your results.';
-      } else if (
-        message.type === 'MEMORY_ERROR' &&
-        feedback
-      ) {
-        feedback.textContent =
-          'The survey could not accept the data. Keep this page open and contact the researcher.';
-      }
-    }
-  });
-
-  const bridgeTimer = setInterval(sendSnapshot, 2000);
-
-  window.addEventListener('pagehide', () => {
-    clearInterval(bridgeTimer);
-  });
 
   // ---------- DOM elements ----------
   const statusEl = document.getElementById('status');
@@ -251,17 +74,17 @@ window.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadBtn');
   const roundPill = document.getElementById('round-pill');
 
-  // ---------- Food–country pairs ----------
-  const PAIRS = [
-    { food: 'img1.png', country: 'img9.png' },
-    { food: 'img2.png', country: 'img10.png' },
-    { food: 'img3.png', country: 'img11.png' },
-    { food: 'img4.png', country: 'img12.png' },
-    { food: 'img5.png', country: 'img13.png' },
-    { food: 'img6.png', country: 'img14.png' },
-    { food: 'img7.png', country: 'img15.png' },
-    { food: 'img8.png', country: 'img16.png' }
-  ];
+  // Set six columns. Other card styling remains in the CSS file.
+  if (board) {
+    board.style.display = 'grid';
+    board.style.gridTemplateColumns = 'repeat(6, minmax(0, 1fr))';
+  }
+
+  // Only one play is permitted.
+  if (playAgainBtn) {
+    playAgainBtn.disabled = true;
+    playAgainBtn.style.display = 'none';
+  }
 
   // ---------- Helpers ----------
   const nowISO = () => new Date().toISOString();
@@ -269,7 +92,6 @@ window.addEventListener('DOMContentLoaded', () => {
   function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-
       [array[i], array[j]] = [array[j], array[i]];
     }
 
@@ -310,6 +132,225 @@ window.addEventListener('DOMContentLoaded', () => {
     ].join('-');
   }
 
+  // ---------- Save completed game ----------
+  function saveCompletedGame() {
+    if (!storageKey || !board || playCount !== maxPlays) return;
+
+    const saved = {
+      schemaVersion: 1,
+      responseId,
+      studentId,
+      startedAt,
+      completedAt,
+      moves,
+      logs: sessionLogs,
+      cards: Array.from(board.children).map(card => ({
+        id: card.id,
+        image: card.dataset.image,
+        match: card.dataset.match
+      }))
+    };
+
+    try {
+      window.sessionStorage.setItem(
+        storageKey,
+        JSON.stringify(saved)
+      );
+    } catch (error) {
+      const feedback = document.getElementById('bridge-status');
+
+      if (feedback) {
+        feedback.textContent =
+          'Please keep this page open. The browser could not preserve your completed game after a page reload.';
+      }
+    }
+  }
+
+  // ---------- Restore completed game ----------
+  function restoreCompletedGame() {
+    if (!storageKey || !board || !boardWrap) return false;
+
+    let saved;
+
+    try {
+      saved = JSON.parse(
+        window.sessionStorage.getItem(storageKey)
+      );
+    } catch (error) {
+      return false;
+    }
+
+    if (
+      !saved ||
+      saved.schemaVersion !== 1 ||
+      saved.responseId !== responseId ||
+      !Array.isArray(saved.cards) ||
+      saved.cards.length !== totalCards ||
+      !Array.isArray(saved.logs) ||
+      !Number.isInteger(saved.moves) ||
+      saved.moves < totalPairs ||
+      saved.moves !== saved.logs.length ||
+      !saved.startedAt ||
+      !saved.completedAt
+    ) return false;
+
+    const expectedImages = PAIRS.flatMap(pair => [
+      pair.food,
+      pair.country
+    ]);
+
+    if (
+      !saved.cards.every(card =>
+        card &&
+        typeof card.id === 'string' &&
+        typeof card.image === 'string' &&
+        Number.isInteger(Number(card.match))
+      )
+    ) return false;
+
+    const images = saved.cards.map(card => card.image);
+
+    if (
+      new Set(images).size !== totalCards ||
+      !expectedImages.every(image => images.includes(image)) ||
+      !saved.cards.every(card => {
+        const pair = PAIRS[Number(card.match)];
+
+        return pair && (
+          pair.food === card.image ||
+          pair.country === card.image
+        );
+      })
+    ) return false;
+
+    studentId = saved.studentId;
+    startedAt = saved.startedAt;
+    completedAt = saved.completedAt;
+    moves = saved.moves;
+    LOGS = saved.logs;
+    sessionLogs.push(...saved.logs);
+
+    matchedPairs = totalPairs;
+    flippedCards = [];
+
+    board.innerHTML = '';
+
+    saved.cards.forEach(config => {
+      const card = document.createElement('div');
+
+      card.className = 'card flipped';
+      card.id = config.id;
+      card.dataset.image = config.image;
+      card.dataset.match = config.match;
+      card.dataset.matched = 'true';
+      card.style.backgroundImage =
+        `url('images/${config.image}')`;
+
+      board.appendChild(card);
+    });
+
+    if (uidPill) {
+      uidPill.textContent = `ID: ${studentId}`;
+    }
+
+    if (movesEl) {
+      movesEl.textContent = `Moves: ${moves}`;
+    }
+
+    if (start) {
+      start.style.display = 'none';
+    }
+
+    if (bar) {
+      bar.style.width = '100%';
+    }
+
+    boardWrap.style.display = 'block';
+
+    // Restore the completion display and resend the saved results.
+    finishGame();
+
+    return true;
+  }
+
+  // ---------- Send data to Qualtrics ----------
+  function sendSnapshot() {
+    if (!bridgeOrigin || !bridgeToken) return;
+
+    window.parent.postMessage({
+      type: 'MEMORY_DATA',
+      token: bridgeToken,
+      revision,
+      payload: {
+        schemaVersion: 1,
+        responseId,
+        studentId,
+        condition: 'int_wr',
+        round: 1,
+        startedAt,
+        completedAt,
+        completed: playCount === maxPlays,
+        completedRounds: playCount,
+        maxPlays,
+        moves: sessionLogs.length,
+        currentRoundMoves: moves,
+        matchedPairs,
+        logs: sessionLogs.slice()
+      }
+    }, bridgeOrigin);
+  }
+
+  // ---------- Receive messages from Qualtrics ----------
+  window.addEventListener('message', event => {
+    const message = event.data;
+
+    if (
+      window.parent === window ||
+      event.source !== window.parent ||
+      !message
+    ) return;
+
+    if (message.type === 'MEMORY_INIT') {
+      if (
+        event.origin !== 'https://memphis.co1.qualtrics.com' ||
+        typeof message.token !== 'string' ||
+        message.token.length < 16 ||
+        message.responseId !== responseId
+      ) return;
+
+      bridgeOrigin = event.origin;
+      bridgeToken = message.token;
+      sendSnapshot();
+    } else if (
+      event.origin === bridgeOrigin &&
+      message.token === bridgeToken
+    ) {
+      const feedback = document.getElementById('bridge-status');
+
+      if (
+        message.type === 'MEMORY_ACK' &&
+        message.revision === revision &&
+        playCount === maxPlays &&
+        feedback
+      ) {
+        feedback.textContent =
+          'Results received by the survey page. Click Next below to submit your results.';
+      } else if (
+        message.type === 'MEMORY_ERROR' &&
+        feedback
+      ) {
+        feedback.textContent =
+          'The survey could not accept the data. Keep this page open and contact the researcher.';
+      }
+    }
+  });
+
+  const bridgeTimer = setInterval(sendSnapshot, 2000);
+
+  window.addEventListener('pagehide', () => {
+    clearInterval(bridgeTimer);
+  });
+
   // ---------- Reset current round ----------
   function resetState() {
     flippedCards = [];
@@ -321,7 +362,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (statusEl) {
       statusEl.textContent =
-        'Find all eight food–country pairs.';
+        `Find all ${totalPairs} food–country pairs.`;
     }
 
     if (movesEl) {
@@ -365,9 +406,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const lines = [
       headers.join(','),
       ...LOGS.map(row =>
-        headers
-          .map(header => escapeCSV(row[header]))
-          .join(',')
+        headers.map(header => escapeCSV(row[header])).join(',')
       )
     ];
 
@@ -438,21 +477,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
       if (bar) {
         bar.style.width =
-          `${(matchedPairs / PAIRS.length) * 100}%`;
+          `${(matchedPairs / totalPairs) * 100}%`;
       }
 
       flippedCards = [];
       resolving = false;
 
-      if (matchedPairs === PAIRS.length) {
+      if (matchedPairs === totalPairs) {
         finishGame();
       }
     } else {
       setTimeout(() => {
         [card1, card2].forEach(card => {
           card.classList.remove('flipped');
-          card.style.backgroundImage =
-            "url('images/back.png')";
+          card.style.backgroundImage = "url('images/back.png')";
         });
 
         flippedCards = [];
@@ -482,7 +520,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ---------- Create 16 shuffled cards ----------
+  // ---------- Create 36 shuffled cards ----------
   function setupBoard() {
     const configs = [];
 
@@ -509,8 +547,7 @@ window.addEventListener('DOMContentLoaded', () => {
       card.dataset.image = config.image;
       card.dataset.match = String(config.match);
       card.dataset.matched = 'false';
-      card.style.backgroundImage =
-        "url('images/back.png')";
+      card.style.backgroundImage = "url('images/back.png')";
 
       card.addEventListener('click', () => {
         onCardClick(card);
@@ -551,6 +588,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (playAgainBtn) {
       playAgainBtn.disabled = true;
+      playAgainBtn.style.display = 'none';
     }
 
     gameActive = true;
@@ -563,13 +601,18 @@ window.addEventListener('DOMContentLoaded', () => {
     sendSnapshot();
   }
 
-  // ---------- Finish a round ----------
+  // ---------- Finish the game ----------
   function finishGame() {
+    // Prevent a duplicate completion from increasing playCount.
+    if (playCount >= maxPlays) return;
+
     gameActive = false;
     resolving = false;
+    playCount = maxPlays;
 
-    const completedRound = playCount + 1;
-    playCount++;
+    if (!completedAt) {
+      completedAt = nowISO();
+    }
 
     if (end) {
       end.style.display = 'block';
@@ -579,58 +622,31 @@ window.addEventListener('DOMContentLoaded', () => {
       downloadBtn.disabled = false;
     }
 
-    if (playCount < maxPlays) {
-      if (summary) {
-        summary.textContent =
-          `You completed round ${completedRound} in ${moves} moves. ` +
-          'Please start the second round to complete this stage.';
-      }
+    const completionMessage =
+      `You completed the final round in ${moves} moves. ` +
+      `This stage is complete. Your completion code is ${completionCode}. ` +
+      'Enter this code in the survey box below, then click Next to continue.';
 
-      if (statusEl) {
-        statusEl.textContent = 'Round one completed.';
-      }
-
-      if (roundPill) {
-        roundPill.textContent =
-          `Round: ${completedRound} completed`;
-      }
-
-      if (playAgainBtn) {
-        playAgainBtn.style.display = 'inline-block';
-        playAgainBtn.disabled = false;
-        playAgainBtn.textContent = 'Start Second Round';
-      }
-    } else {
-      const completionMessage =
-        `You completed the final round in ${moves} moves. ` +
-        `This stage is complete. Your completion code is ${completionCode}. ` +
-        'Enter this code in the survey box below, then click Next to continue.';
-
-      if (summary) {
-        summary.textContent = completionMessage;
-      }
-
-      if (statusEl) {
-        statusEl.textContent =
-          `Stage completed. Completion code: ${completionCode}`;
-      }
-
-      if (roundPill) {
-        roundPill.textContent = 'Round: Game Over';
-      }
-
-      if (playAgainBtn) {
-        playAgainBtn.disabled = true;
-        playAgainBtn.style.display = 'none';
-      }
-
-      if (beginBtn) {
-        beginBtn.disabled = true;
-      }
+    if (summary) {
+      summary.textContent = completionMessage;
     }
 
-    if (playCount === maxPlays && !completedAt) {
-      completedAt = nowISO();
+    if (statusEl) {
+      statusEl.textContent =
+        `Stage completed. Completion code: ${completionCode}`;
+    }
+
+    if (roundPill) {
+      roundPill.textContent = 'Round: Game Over';
+    }
+
+    if (playAgainBtn) {
+      playAgainBtn.disabled = true;
+      playAgainBtn.style.display = 'none';
+    }
+
+    if (beginBtn) {
+      beginBtn.disabled = true;
     }
 
     saveCompletedGame();
@@ -667,19 +683,13 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------- Second-round button ----------
-  if (playAgainBtn) {
-    playAgainBtn.addEventListener('click', () => {
-      if (gameActive || playCount !== 1) return;
-      startRound();
-    });
-  }
-
   // ---------- Manual download ----------
   if (downloadBtn) {
     downloadBtn.addEventListener('click', () => {
-      if (matchedPairs < PAIRS.length) {
-        alert('Complete all eight pairs before downloading.');
+      if (matchedPairs < totalPairs) {
+        alert(
+          `Complete all ${totalPairs} pairs before downloading.`
+        );
         return;
       }
 
