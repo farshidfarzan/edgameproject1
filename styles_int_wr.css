@@ -1,71 +1,322 @@
-:root{
-  --bg:#0f172a;           /* slate-900 */
-  --card:#111827;         /* gray-900 */
-  --text:#e5e7eb;         /* gray-200 */
-  --muted:#9ca3af;        /* gray-400 */
-  --brand:#3b82f6;        /* blue-500 */
-  --brand-2:#2563eb;      /* blue-600 */
-  --ok:#22c55e;           /* green-500 */
-  --bad:#ef4444;          /* red-500 */
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+:root {
+  --bg: #0f172a;
+  --card: #111827;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --brand: #3b82f6;
+  --brand-2: #2563eb;
+  --ok: #22c55e;
+  --bad: #ef4444;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
 }
-html, body { height:100%; }
-body{
-  margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
-  background: radial-gradient(1200px 1200px at 90% -10%, #1e293b 10%, var(--bg) 60%);
-  color:var(--text); display:flex; align-items:center; justify-content:center; padding:24px;
+
+* {
+  box-sizing: border-box;
 }
-.card-shell{
-  width:min(900px, 100%); background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-  border:1px solid rgba(255,255,255,.06); border-radius:24px; box-shadow:var(--shadow); padding:24px 24px 28px;
+
+html {
+  min-height: 100%;
 }
-.row{display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:8px}
-.pill{font-size:12px; color:var(--muted); border:1px solid rgba(255,255,255,.12); padding:6px 10px; border-radius:999px}
-h1{font-size:22px; margin:8px 0 2px}
-.desc{margin:0; color:var(--muted); font-size:13px}
 
-.progress{height:8px; background:#0b1220; border-radius:999px; overflow:hidden; margin:16px 0 0}
-.bar{height:100%; background:linear-gradient(90deg, var(--brand), var(--brand-2)); width:0%}
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 24px;
 
-.start .field{display:flex; gap:10px; margin-top:14px}
-.start input{flex:1; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.03); color:var(--text)}
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
 
-#game-board{ display:grid; grid-template-columns: repeat(4, 120px); grid-template-rows: repeat(4, 120px); gap:14px; margin:20px auto 12px; justify-content:center }
-.card{
-  width:120px; height:120px; border-radius:16px; cursor:pointer; user-select:none;
-  background: rgba(255,255,255,.03) url('images/back.png') center/cover no-repeat;
-  border:1px solid rgba(255,255,255,.12); transition: transform .15s ease, border-color .2s ease, background .2s ease;
+  background:
+    radial-gradient(
+      1200px 1200px at 90% -10%,
+      #1e293b 10%,
+      var(--bg) 60%
+    );
+
+  color: var(--text);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.card:hover{ border-color:rgba(255,255,255,.22) }
-.card.flipped{ background-color:#0b1220; transform: rotateY(180deg) }
-.card.matched{ background:rgba(34,197,94,.12); border-color:rgba(34,197,94,.35); color:#bbf7d0; cursor:default }
 
-.btns{display:flex; gap:10px; justify-content:flex-end; align-items:center}
-button{border:0; border-radius:12px; padding:12px 16px; font-weight:600; cursor:pointer}
-.primary{background:linear-gradient(180deg, var(--brand), var(--brand-2)); color:white}
-.secondary{background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,.15)}
+.card-shell {
+  width: min(900px, 100%);
+  margin-block: auto;
+  padding: 24px 24px 28px;
 
-.end{ text-align:center; padding:18px 6px }
-.end h2{font-size:26px; margin:0 0 6px}
-.muted{ color:var(--muted) }
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, .04),
+      rgba(255, 255, 255, .02)
+    );
 
-@media (max-width:520px){
-  #game-board{ grid-template-columns: repeat(4, 80px); grid-template-rows: repeat(4, 80px); gap:10px }
-  .card{ width:80px; height:80px }
+  border: 1px solid rgba(255, 255, 255, .06);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pill {
+  max-width: 100%;
+  padding: 6px 10px;
+
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px;
+}
+
+h1 {
+  margin: 8px 0 2px;
+  font-size: 22px;
+}
+
+.desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.progress {
+  height: 8px;
+  margin: 16px 0 0;
+  overflow: hidden;
+
+  background: #0b1220;
+  border-radius: 999px;
+}
+
+.bar {
+  width: 0%;
+  height: 100%;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--brand),
+      var(--brand-2)
+    );
+}
+
+.start .field {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.start input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 12px;
+
+  background: rgba(255, 255, 255, .03);
+  color: var(--text);
+  font: inherit;
+}
+
+/* ---------- 6 × 6 board ---------- */
+
+#game-board {
+  display: grid;
+
+  width: 100%;
+  max-width: 790px;
+
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+
+  gap: 10px;
+  margin: 20px auto 12px;
 }
 
 .card {
-  background-size: contain !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  aspect-ratio: 1 / 1;
+
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 12px;
+
+  background-color: rgba(255, 255, 255, .03);
+  background-image: url("images/back.png");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+
+  transition:
+    border-color .2s ease,
+    background-color .2s ease;
 }
 
+.card:hover {
+  border-color: rgba(255, 255, 255, .22);
+}
+
+.card.flipped {
+  background-color: #0b1220;
+  transform: none;
+}
+
+/* JS marks matches using data-matched="true". */
+.card[data-matched="true"],
+.card[data-matched="true"]:hover,
 .card.matched,
 .card.matched:hover {
-  opacity: 1 !important;
-  visibility: visible !important;
-  transform: none !important;
-  animation: none !important;
-  filter: none !important;
+  border-color: rgba(34, 197, 94, .35);
+
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  animation: none;
+  filter: none;
+
+  cursor: default;
   pointer-events: none;
+}
+
+/* ---------- Buttons ---------- */
+
+.btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+button {
+  padding: 12px 16px;
+
+  border: 0;
+  border-radius: 12px;
+
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.primary {
+  background:
+    linear-gradient(
+      180deg,
+      var(--brand),
+      var(--brand-2)
+    );
+
+  color: white;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, .15);
+}
+
+/* ---------- Completion ---------- */
+
+.end {
+  padding: 18px 6px;
+  text-align: center;
+}
+
+.end h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+}
+
+.muted,
+#bridge-status {
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Smaller screens ---------- */
+
+@media (max-width: 640px) {
+  body {
+    padding: 12px;
+  }
+
+  .card-shell {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  #game-board {
+    gap: 6px;
+  }
+
+  .card {
+    border-radius: 8px;
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  .row {
+    gap: 6px;
+  }
+
+  .pill {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 400px) {
+  body {
+    padding: 8px;
+  }
+
+  .card-shell {
+    padding: 10px;
+  }
+
+  #game-board {
+    gap: 4px;
+  }
+
+  .card {
+    border-radius: 5px;
+  }
+
+  .start .field {
+    flex-direction: column;
+  }
 }
